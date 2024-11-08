@@ -1,0 +1,20 @@
+# Set default behavior to automatically normalize line endings
+* text=auto
+
+# Force specific file types to always use LF
+*.js text eol=lf
+*.jsx text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.scss text eol=lf
+*.vue text eol=lf
+*.mjs text eol=lf
+
+# Files that should keep CRLF (if needed)
+*.bat text eol=crlf
