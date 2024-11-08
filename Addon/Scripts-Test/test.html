@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Model Loader Test</title>
+</head>
+<body>
+    <canvas id="canvas" width="800" height="600"></canvas>
+    <script type="module">
+        import { ModelLoader } from '../Scripts/ModelLoader.js';
+        import { GPUResourceManager } from '../Scripts/GPUResourceManager.js';
+
+        async function init() {
+            const canvas = document.getElementById('canvas');
+            const gl = canvas.getContext('webgl2');
+            if (!gl) {
+                throw new Error('WebGL2 not supported');
+            }
+
+            gl.clearColor(0.2, 0.3, 0.3, 1.0);
+            gl.enable(gl.DEPTH_TEST);
+            gl.viewport(0, 0, canvas.width, canvas.height);
+
+            const gpuManager = new GPUResourceManager(gl);
+            const modelLoader = new ModelLoader(gl, gpuManager);
+
+            try {
+                const modelId = await modelLoader.loadModel('./example.glb');
+                console.log('Model loaded:', modelId);
+                
+                const modelData = modelLoader.getModelData(modelId.id);
+                console.log('Model data:', modelData);
+            } catch (error) {
+                console.error('Failed to load model:', error);
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html> 
