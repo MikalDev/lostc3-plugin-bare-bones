@@ -15,3 +15,4 @@ export interface ModelError extends Error {
     modelId?: string;
 }
 export declare function createModelError(code: ModelErrorCode, message: string, modelId?: string): ModelError;
+//# sourceMappingURL=errors.d.ts.map

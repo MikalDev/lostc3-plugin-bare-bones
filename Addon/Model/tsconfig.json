@@ -4,9 +4,15 @@
     "module": "esnext",
     "moduleResolution": "node",
     "declaration": true,
+    "declarationMap": true,
     "outDir": "./dist",
     "strict": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "allowJs": true,
+    "emitDeclarationOnly": false,
+    "typeRoots": ["./dist"],
+    "baseUrl": ".",
+    "declarationDir": "./dist"
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules"]

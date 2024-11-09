@@ -11,3 +11,4 @@ export declare class Model implements IModel {
     setQuaternion(x: number, y: number, z: number, w: number): void;
     private eulerToQuaternion;
 }
+//# sourceMappingURL=Model.d.ts.map

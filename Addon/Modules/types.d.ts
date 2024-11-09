@@ -122,3 +122,4 @@ export interface IGPUResourceManager {
     getDefaultShader(): WebGLProgram;
 }
 export type AttributeSemantic = 'POSITION' | 'NORMAL' | 'TEXCOORD_0' | 'JOINTS_0' | 'WEIGHTS_0';
+//# sourceMappingURL=types.d.ts.map

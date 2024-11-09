@@ -29,3 +29,4 @@ export declare class ModelLoader implements IModelLoader {
     private createGLBuffer;
     private getAttributeLocation;
 }
+//# sourceMappingURL=ModelLoader.d.ts.map

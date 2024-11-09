@@ -10,3 +10,4 @@ export declare class AnimationController {
     private updateJointMatrices;
     private evaluateTrack;
 }
+//# sourceMappingURL=AnimationController.d.ts.map

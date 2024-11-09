@@ -27,3 +27,4 @@ export declare class SceneGraph {
     removeNode(nodeIndex: number): void;
 }
 export {};
+//# sourceMappingURL=SceneGraph.d.ts.map

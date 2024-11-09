@@ -35,3 +35,4 @@ export declare class InstanceManager implements IInstanceManager {
     private startAnimation;
     private cleanupInstance;
 }
+//# sourceMappingURL=InstanceManager.d.ts.map

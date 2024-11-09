@@ -38,3 +38,4 @@ export declare class ShaderSystem {
     getProgram(name: string): WebGLProgram;
     dispose(): void;
 }
+//# sourceMappingURL=GPUResourceManager.d.ts.map
