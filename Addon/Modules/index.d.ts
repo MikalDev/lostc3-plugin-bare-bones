@@ -1,17 +1,11 @@
 /// <reference path="./AnimationController.d.ts" />
 export * from './AnimationController';
 
-/// <reference path="./errors.d.ts" />
-export * from './errors';
-
 /// <reference path="./GPUResourceManager.d.ts" />
 export * from './GPUResourceManager';
 
 /// <reference path="./InstanceManager.d.ts" />
 export * from './InstanceManager';
-
-/// <reference path="./main.d.ts" />
-export * from './main';
 
 /// <reference path="./Model.d.ts" />
 export * from './Model';
@@ -21,6 +15,12 @@ export * from './ModelLoader';
 
 /// <reference path="./SceneGraph.d.ts" />
 export * from './SceneGraph';
+
+/// <reference path="./errors.d.ts" />
+export * from './errors';
+
+/// <reference path="./main.d.ts" />
+export * from './main';
 
 /// <reference path="./types.d.ts" />
 export * from './types';

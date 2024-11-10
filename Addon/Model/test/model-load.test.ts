@@ -1,32 +1,27 @@
-import { describe, it, expect, beforeAll } from 'vitest';
-import { Window } from 'happy-dom';
-import { GPUResourceManager, ModelLoader } from '../dist/index.js';
+/**
+ * @jest-environment jsdom
+ */
+
+// import 'jest-webgl-canvas-mock'; // This automatically mocks WebGL
+import { GPUResourceManager, ModelLoader } from '../src/main.ts';
+import { describe, it, expect, beforeAll } from '@jest/globals';
 
 describe('Model Loading', () => {
-    let window: Window;
-    
+    let gl: WebGL2RenderingContext;
     beforeAll(() => {
-        // Setup happy-dom window with WebGL context
-        window = new Window();
-        global.window = window as any;
-        global.document = window.document as unknown as Document;
-        // Mock WebGL context
-        const canvas = window.document.createElement('canvas');
-        const gl = canvas.getContext('webgl');
-        if (!gl) {
-            throw new Error('WebGL context creation failed');
-        }
+        // Create canvas and get WebGL context
+        const canvas = document.createElement('canvas');
+        gl = canvas.getContext('webgl2')!;
     });
 
     it('should load a GLB model successfully', async () => {
-        // Assuming you have a test GLB file in your test assets
-        const canvas = window.document.createElement('canvas');
-        const gl = canvas.getContext('webgl')!;
         const gpuResourceManager = new GPUResourceManager(gl);
         const modelLoader = new ModelLoader(gl, gpuResourceManager);
-        const model = await modelLoader.loadModel('./test/assets/test-model.glb');
         
-        // Basic assertions to verify model loading
+        const model = await modelLoader.loadModel('./test/assets/cube.glb');
+        
+        // The mock provides spies for all WebGL methods
+        expect(gl.createBuffer).toHaveBeenCalled();
         expect(model).toBeDefined();
         expect(model.id).toBeDefined();
         expect(model.meshCount).toBe(1);

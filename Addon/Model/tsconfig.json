@@ -9,10 +9,11 @@
     "strict": true,
     "esModuleInterop": true,
     "allowJs": true,
-    "emitDeclarationOnly": false,
+    "emitDeclarationOnly": true,
     "typeRoots": ["./dist"],
     "baseUrl": ".",
-    "declarationDir": "./dist"
+    "declarationDir": "./dist",
+    "allowImportingTsExtensions": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules"]
