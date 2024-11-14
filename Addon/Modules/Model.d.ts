@@ -4,9 +4,9 @@ export declare class Model implements IModel {
     private manager;
     constructor(instanceId: InstanceId, manager: IInstanceManager);
     setPosition(x: number, y: number, z: number): void;
-    setRotation(x: number, y: number, z: number): void;
+    setRotation(quaternion: Float32Array): void;
     setScale(x: number, y: number, z: number): void;
-    playAnimation(name: string, options?: AnimationOptions): void;
+    playAnimation(animationName: string, options?: AnimationOptions): void;
     stopAnimation(): void;
     setQuaternion(x: number, y: number, z: number, w: number): void;
     private eulerToQuaternion;

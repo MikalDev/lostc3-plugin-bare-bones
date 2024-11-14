@@ -2,11 +2,13 @@ import { MaterialData, IGPUResourceManager } from './types';
 export declare class GPUResourceManager implements IGPUResourceManager {
     private gl;
     private shaderSystem;
+    private materialSystem;
     private buffers;
     private textures;
     private vaos;
     constructor(gl: WebGL2RenderingContext);
     createBuffer(data: BufferSource, usage: number): WebGLBuffer;
+    createIndexBuffer(data: BufferSource, usage: number): WebGLBuffer;
     createTexture(image: ImageData | HTMLImageElement): WebGLTexture;
     deleteBuffer(buffer: WebGLBuffer): void;
     deleteTexture(texture: WebGLTexture): void;
@@ -16,13 +18,17 @@ export declare class GPUResourceManager implements IGPUResourceManager {
     private createError;
     getShader(modelId: string): WebGLProgram;
     getDefaultShader(): WebGLProgram;
+    bindMaterial(materialIndex: number, shader: WebGLProgram): void;
+    addMaterial(material: MaterialData): void;
 }
 export declare class MaterialSystem {
     private gl;
     private materials;
     private currentMaterial;
-    constructor(gl: WebGL2RenderingContext, materials: MaterialData[]);
-    bindMaterial(materialIndex: number): void;
+    private samplerTextureUnitMap;
+    constructor(gl: WebGL2RenderingContext, materials: MaterialData[], samplerTextureUnitMap: Record<string, number>);
+    addMaterial(material: MaterialData): void;
+    bindMaterial(materialIndex: number, shader: WebGLProgram): void;
     private applyMaterial;
 }
 export declare class ShaderSystem {

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Model Loader Test</title>
+    <style>
+        canvas {
+            border: 1px solid #000;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="glCanvas" width="800" height="600"></canvas>
+    <script type="module">
+        // @ts-check
+        import { ModelLoader, GPUResourceManager, InstanceManager } from '../dist/index.js';
+
+        console.log('ModelLoader', ModelLoader);
+
+        // Get WebGL context
+        const canvas = document.getElementById('glCanvas');
+        // @ts-ignore
+        const gl = canvas.getContext('webgl2');
+        
+        if (!gl) {
+            alert('WebGL2 not supported in this browser!');
+            throw new Error('WebGL2 not supported');
+        }
+
+        // Initialize managers
+        const gpuResourceManager = new GPUResourceManager(gl);
+        const modelLoader = new ModelLoader(gl, gpuResourceManager);
+        const instanceManager = new InstanceManager(gl, modelLoader, gpuResourceManager);
+
+        // Initialize webgl2 for rendering and texture handling
+        instanceManager.initialize();
+
+        // Load model
+        // @ts-ignore
+        const modelPath = './test/assets/c-bio.glb';
+        // const modelPath = './test/assets/c-bug.glb';
+        // const modelPath = './test/assets/CompareNormal.glb';
+        await new Promise(resolve => setTimeout(resolve, 500));
+        const model = await modelLoader.loadModel(modelPath);
+        console.log('Model loaded successfully:', model.id, modelPath);
+        
+        // Create instance
+        const instance = instanceManager.createModel(model.id);
+        console.log('Instance:', instance);
+        instance.setRotation([0.2, 0.2, 0.2, 0.707]);
+        instance.setPosition(0, -100, 0);
+        instance.setScale(100, 100, 100);
+        console.log('Instance set');
+        /*
+        const instance2 = instanceManager.createModel(model.id);
+        instance2.setRotation([0.2, 0.2, 0.2, 0.707]);
+        instance2.setPosition(0, 0, 0);
+        instance2.setScale(5, 5, 5);
+        console.log('Instance2 set');
+        */
+
+        // Create view projection matrix
+        const viewProjection = instanceManager.createViewProjection(60, { width: canvas.width, height: canvas.height }, 0.1, 1000, [0, 0, -200], [0, 0, 0], [0, 1, 0]);
+
+        // Render
+        instanceManager.render(viewProjection);
+
+        let rotation = 0;
+
+        // Create render loop
+        function render() {
+            // Clear and render scene
+            instanceManager.render(viewProjection);
+            // rotate the instance
+            rotation += 0.001;
+            instance.setQuaternion(
+                Math.sin(rotation/2) * Math.cos(rotation/2), // X component
+                Math.sin(rotation/2),                        // Y component
+                0,                                           // Z component
+                Math.cos(rotation/2) * Math.cos(rotation/2)  // W component
+            );
+            /*
+            instance.setQuaternion(
+                0,                    // X component
+                Math.sin(rotation/2), // Y component 
+                0,                    // Z component
+                Math.cos(rotation/2)  // W component
+            );
+            */
+            /*
+            instance2.setQuaternion(
+                Math.sin(rotation/2) * Math.cos(rotation/2), // X component
+                -Math.sin(rotation/2),                        // Y component
+                0,                                           // Z component
+                -Math.cos(rotation/2) * Math.cos(rotation/2)  // W component
+            );
+            */
+
+            // Request next frame
+            requestAnimationFrame(render);
+        }
+
+        // Start render loop
+        render();
+
+        // Clean up
+        window.addEventListener('beforeunload', () => {
+            gpuResourceManager.dispose();
+        });
+    </script>
+</body>
+</html>

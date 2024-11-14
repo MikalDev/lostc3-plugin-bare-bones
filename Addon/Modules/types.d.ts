@@ -1,3 +1,4 @@
+import { Model } from './Model';
 export interface ModelId {
     readonly id: string;
     readonly meshCount: number;
@@ -40,9 +41,10 @@ export interface Mesh {
 }
 export interface MaterialData {
     program: WebGLProgram;
-    textures: Map<number, WebGLTexture>;
+    textures: Map<string, WebGLTexture>;
     uniforms?: Record<string, number | boolean | number[]>;
 }
+export declare const SAMPLER_TEXTURE_UNIT_MAP: Record<string, number>;
 export interface AnimationClip {
     name: string;
     duration: number;
@@ -71,18 +73,16 @@ export interface IModelLoader {
     getAnimation(modelId: string, animationName: string): AnimationClip | undefined;
 }
 export interface IInstanceManager {
-    internal: {
-        setPosition(id: number, x: number, y: number, z: number): void;
-        setRotation(id: number, quaternion: Float32Array): void;
-        setScale(id: number, x: number, y: number, z: number): void;
-        playAnimation(id: number, name: string, options?: AnimationOptions): void;
-        stopAnimation(id: number): void;
-    };
+    setModelPosition(x: number, y: number, z: number, instance: Model): void;
+    setModelRotation(quaternion: Float32Array, instance: Model): void;
+    setModelScale(x: number, y: number, z: number, instance: Model): void;
+    playModelAnimation(name: string, instance: Model, options?: AnimationOptions): void;
+    stopModelAnimation(instance: Model): void;
 }
 export interface IModel {
     readonly instanceId: InstanceId;
     setPosition(x: number, y: number, z: number): void;
-    setRotation(x: number, y: number, z: number): void;
+    setRotation(quaternion: Float32Array): void;
     setScale(x: number, y: number, z: number): void;
     playAnimation(name: string, options?: AnimationOptions): void;
     stopAnimation(): void;
@@ -111,8 +111,9 @@ export interface AnimationOptions {
     speed?: number;
     blendDuration?: number;
 }
+export type BufferUsage = WebGL2RenderingContext['STATIC_DRAW'] | WebGL2RenderingContext['DYNAMIC_DRAW'];
 export interface IGPUResourceManager {
-    createBuffer(data: BufferSource, usage: number): WebGLBuffer;
+    createBuffer(data: BufferSource, usage: BufferUsage): WebGLBuffer;
     createTexture(image: ImageData | HTMLImageElement): WebGLTexture;
     deleteBuffer(buffer: WebGLBuffer): void;
     deleteTexture(texture: WebGLTexture): void;
@@ -120,6 +121,9 @@ export interface IGPUResourceManager {
     createVertexArray(): WebGLVertexArrayObject;
     getShader(modelId: string): WebGLProgram | null;
     getDefaultShader(): WebGLProgram;
+    createIndexBuffer(data: BufferSource, usage: BufferUsage): WebGLBuffer;
+    bindMaterial(materialIndex: number, shader: WebGLProgram): void;
+    addMaterial(material: MaterialData): void;
 }
 export type AttributeSemantic = 'POSITION' | 'NORMAL' | 'TEXCOORD_0' | 'JOINTS_0' | 'WEIGHTS_0';
 //# sourceMappingURL=types.d.ts.map

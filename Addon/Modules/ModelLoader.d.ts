@@ -1,10 +1,11 @@
 import { ModelId, ModelData, IGPUResourceManager, AnimationClip, IModelLoader } from './types';
 export declare class ModelLoader implements IModelLoader {
-    private gl;
+    gl: WebGL2RenderingContext;
     private loadedModels;
     private gpuResources;
     private webio;
     constructor(gl: WebGL2RenderingContext, gpuResources: IGPUResourceManager);
+    private createWebIO;
     loadModel(url: string): Promise<ModelId>;
     getModelData(modelId: string): ModelData | null;
     deleteModel(modelId: string): void;

@@ -1,18 +1,29 @@
-import { Animation,Accessor, Document, Node, Primitive, WebIO, Texture, AnimationSampler } from '@gltf-transform/core';
+import { Animation,Accessor, Document, Node, Primitive, WebIO, Texture, AnimationSampler, TextureInfo } from '@gltf-transform/core';
 import { ModelError, ModelErrorCode, createModelError } from './errors';
-import { AttributeSemantic, ModelId, ModelData, IGPUResourceManager, Mesh, MeshPrimitive, MaterialData, AnimationClip, AnimationTrack, IModelLoader, TextureType } from './types';
-
+import { AttributeSemantic, ModelId, ModelData, IGPUResourceManager, Mesh, MeshPrimitive, MaterialData, AnimationClip, AnimationTrack, IModelLoader, SAMPLER_TEXTURE_UNIT_MAP } from './types';
+import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
+import { DracoDecoderModule } from './draco/draco_decoder_gltf';
 
 export class ModelLoader implements IModelLoader {
-    private gl: WebGL2RenderingContext;
+    public gl: WebGL2RenderingContext;
     private loadedModels: Map<string, ModelData> = new Map();
     private gpuResources: IGPUResourceManager;
-    private webio: WebIO;
+    private webio!: WebIO;
 
     constructor(gl: WebGL2RenderingContext, gpuResources: IGPUResourceManager) {
         this.gl = gl;
         this.gpuResources = gpuResources;
-        this.webio = new WebIO();
+        this.createWebIO();
+    }
+
+    private async createWebIO(): Promise<void> {
+        const dracoDecoder = await (DracoDecoderModule as () => Promise<unknown>)();
+        console.log('ModelLoader: dracoDecoder loaded')
+        this.webio = new WebIO()
+            .registerExtensions([...ALL_EXTENSIONS])
+            .registerDependencies({
+                'draco3d.decoder': dracoDecoder
+            });
     }
 
     async loadModel(url: string): Promise<ModelId> {
@@ -27,6 +38,7 @@ export class ModelLoader implements IModelLoader {
 
             // Load and parse GLB file
             const document = await this.webio.read(url);
+            console.log('ModelLoader: read', document);
             const modelData = await this.processDocument(document);
             
             // Store model data
@@ -70,12 +82,24 @@ export class ModelLoader implements IModelLoader {
             jointData: []
         };
 
+        /*
         await Promise.all([
             this.processMeshes(document, modelData),
             this.processMaterials(document, modelData),
             this.processAnimations(document, modelData),
             this.processJoints(document, modelData)
         ]);
+        */
+        // Process each component sequentially for easier debugging
+        console.log('ModelLoader: processDocument', modelData);
+        await this.processMeshes(document, modelData);
+        console.log('ModelLoader: processMeshes', modelData);
+        await this.processMaterials(document, modelData);
+        console.log('ModelLoader: processMaterials', modelData);
+        await this.processAnimations(document, modelData);
+        console.log('ModelLoader: processAnimations', modelData);
+        await this.processJoints(document, modelData);
+        console.log('ModelLoader: processJoints', modelData);
 
         return modelData;
     }
@@ -89,7 +113,7 @@ export class ModelLoader implements IModelLoader {
         for (const mesh of meshes) {
             const modelMesh: Mesh = {
                 primitives: [],
-                name: mesh.getName() || ''
+                name: mesh.getName() || '',
             };
 
             for (const primitive of mesh.listPrimitives()) {
@@ -103,7 +127,7 @@ export class ModelLoader implements IModelLoader {
 
     private processPrimitive(
         primitive: Primitive,
-        document: Document
+        document: Document,
     ): MeshPrimitive {
         const vao = this.gpuResources.createVertexArray();
         this.gl.bindVertexArray(vao);
@@ -136,6 +160,7 @@ export class ModelLoader implements IModelLoader {
             attributes[semantic as AttributeSemantic] = buffer;
 
             const location = this.getAttributeLocation(semantic);
+            console.log('ModelLoader: processPrimitive', location, semantic);
             this.gl.enableVertexAttribArray(location);
             this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
             
@@ -157,20 +182,22 @@ export class ModelLoader implements IModelLoader {
         const indices = primitive.getIndices();
         const indexBuffer = indices ? this.createIndexBuffer(indices) : null;
 
-        // Need to unbind buffers before unbinding VAO
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, null);
-        this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, null);
+        // Unbind VAO first
         this.gl.bindVertexArray(null);
 
+        // Then unbind buffers
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, null);
+        this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, null);
+
         return {
-            vao,
             material: this.getMaterialIndex(primitive, document),
             indexBuffer: indexBuffer!,
             indexCount: indices?.getCount() ?? 0,
             indexType: this.getIndexType(indices ?? null),
             vertexCount: positionAttribute.getCount(),
             hasSkin: !!primitive.getAttribute('JOINTS_0'),
-            attributes
+            attributes,
+            vao
         };
     }
 
@@ -198,14 +225,59 @@ export class ModelLoader implements IModelLoader {
                 }
             };
 
-            // Load textures
-            const baseColorTexture = material.getBaseColorTexture();
-            if (baseColorTexture) {
-                materialData.textures.set(TextureType.BaseColor, await this.loadTexture(baseColorTexture));
+            // Iterate over the SAMPLER_TEXTURE_UNIT_MAP to assign textures
+            for (const [samplerName, textureUnit] of Object.entries(SAMPLER_TEXTURE_UNIT_MAP)) {
+                let texturePromise: Promise<WebGLTexture> | null = null;
+                
+                switch (samplerName) {
+                    case 'u_BaseColorSampler':
+                        const baseColorTexture = material.getBaseColorTexture();
+                        if (baseColorTexture) {
+                            const textureInfo = material.getBaseColorTextureInfo();
+                            texturePromise = this.loadTexture(baseColorTexture, textureInfo);
+                        }
+                        break;
+                    case 'u_MetallicRoughnessSampler':
+                        const metallicRoughnessTexture = material.getMetallicRoughnessTexture();
+                        if (metallicRoughnessTexture) {
+                            const textureInfo = material.getMetallicRoughnessTextureInfo();
+                            texturePromise = this.loadTexture(metallicRoughnessTexture, textureInfo);
+                        }
+                        break;
+                    case 'u_NormalSampler':
+                        const normalTexture = material.getNormalTexture();
+                        if (normalTexture) {
+                            const textureInfo = material.getNormalTextureInfo();
+                            texturePromise = this.loadTexture(normalTexture, textureInfo);
+                        }
+                        break;
+                    case 'u_OcclusionSampler':
+                        const occlusionTexture = material.getOcclusionTexture();
+                        if (occlusionTexture) {
+                            const textureInfo = material.getOcclusionTextureInfo();
+                            texturePromise = this.loadTexture(occlusionTexture, textureInfo);
+                        }
+                        break;
+                    case 'u_EmissiveSampler':
+                        const emissiveTexture = material.getEmissiveTexture();
+                        if (emissiveTexture) {
+                            const textureInfo = material.getEmissiveTextureInfo();
+                            texturePromise = this.loadTexture(emissiveTexture, textureInfo);
+                        }
+                        break;
+                    // Add more cases here if additional samplers are defined in SAMPLER_TEXTURE_UNIT_MAP
+                    default:
+                        console.warn(`Unhandled sampler name: ${samplerName}`);
+                }
+
+                if (texturePromise) {
+                    const texture = await texturePromise;
+                    materialData.textures.set(samplerName, texture);
+                }
             }
 
-            // Add other texture types similarly...
             modelData.materials.push(materialData);
+            this.gpuResources.addMaterial(materialData);
         }
     }
 
@@ -362,7 +434,7 @@ export class ModelLoader implements IModelLoader {
                 'Accessor array is null'
             );
         }
-        return this.gpuResources.createBuffer(array, this.gl.ARRAY_BUFFER);
+        return this.gpuResources.createBuffer(array, this.gl.DYNAMIC_DRAW);
     }
 
     private createIndexBuffer(accessor: Accessor): WebGLBuffer {
@@ -373,10 +445,10 @@ export class ModelLoader implements IModelLoader {
                 'Index accessor array is null'
             );
         }
-        return this.gpuResources.createBuffer(array, this.gl.ELEMENT_ARRAY_BUFFER);
+        return this.gpuResources.createIndexBuffer(array, this.gl.STATIC_DRAW);
     }
 
-    private async loadTexture(textureNode: Texture): Promise<WebGLTexture> {
+    private async loadTexture(textureNode: Texture, textureInfo: TextureInfo | null): Promise<WebGLTexture> {
         const imageData = await textureNode.getImage();
         if (!imageData) {
             throw this.createModelError(ModelErrorCode.INVALID_DATA, 'Texture image data is null');
@@ -391,11 +463,25 @@ export class ModelLoader implements IModelLoader {
         const texture = this.gpuResources.createTexture(image);
         this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
         
-        // Set texture parameters
-        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
-        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
-        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
-        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
+        // Get wrap modes from textureInfo or use defaults
+        const wrapS = textureInfo?.getWrapS() ?? this.gl.REPEAT;
+        const wrapT = textureInfo?.getWrapT() ?? this.gl.REPEAT;
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, wrapS);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, wrapT);
+
+        // Get min/mag filters from textureInfo or use defaults
+        const minFilter = textureInfo?.getMinFilter() ?? this.gl.LINEAR_MIPMAP_LINEAR;
+        const magFilter = textureInfo?.getMagFilter() ?? this.gl.LINEAR;
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, minFilter);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, magFilter);
+
+        // Generate mipmaps if using a mipmap filter
+        if (minFilter === this.gl.LINEAR_MIPMAP_LINEAR || 
+            minFilter === this.gl.LINEAR_MIPMAP_NEAREST ||
+            minFilter === this.gl.NEAREST_MIPMAP_LINEAR ||
+            minFilter === this.gl.NEAREST_MIPMAP_NEAREST) {
+            this.gl.generateMipmap(this.gl.TEXTURE_2D);
+        }
         
         this.gl.bindTexture(this.gl.TEXTURE_2D, null);
         

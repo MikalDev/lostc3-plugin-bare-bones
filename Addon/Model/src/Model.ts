@@ -11,50 +11,31 @@ export class Model implements IModel {
     }
 
     setPosition(x: number, y: number, z: number): void {
-        this.manager.internal.setPosition(
-            this.instanceId.id,
-            x,
-            y,
-            z
-        );
+        this.manager.setModelPosition(x, y, z, this);
     }
 
-    setRotation(x: number, y: number, z: number): void {
-        // Convert Euler angles to quaternion
-        const quat = this.eulerToQuaternion(x, y, z);
-        this.manager.internal.setRotation(
-            this.instanceId.id,
-            quat
-        );
+    setRotation(quaternion: Float32Array): void {
+        this.manager.setModelRotation(quaternion, this);
     }
 
     setScale(x: number, y: number, z: number): void {
-        this.manager.internal.setScale(
-            this.instanceId.id,
-            x,
-            y,
-            z
-        );
+        this.manager.setModelScale(x, y, z, this);
     }
 
-    playAnimation(name: string, options?: AnimationOptions): void {
-        this.manager.internal.playAnimation(
-            this.instanceId.id,
-            name,
-            options
-        );
+    playAnimation(animationName: string, options?: AnimationOptions): void {
+        this.manager.playModelAnimation(animationName, this, options);
     }
 
     stopAnimation(): void {
-        this.manager.internal.stopAnimation(this.instanceId.id);
+        this.manager.stopModelAnimation(this);
     }
 
     // Additional convenience methods
     setQuaternion(x: number, y: number, z: number, w: number): void {
         const quat = new Float32Array([x, y, z, w]);
-        this.manager.internal.setRotation(
-            this.instanceId.id,
-            quat
+        this.manager.setModelRotation(
+            quat,
+            this
         );
     }
 
