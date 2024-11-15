@@ -12335,30 +12335,33 @@ class ModelLoader {
         });
     }
     async loadModel(url) {
-        try {
-            // Generate deterministic model ID from URL
-            const modelId = this.generateModelId(url);
-            // Check if already loaded
-            if (this.loadedModels.has(modelId.id)) {
-                return modelId;
-            }
-            // Load and parse GLB file
-            const document = await this.webio.read(url);
-            console.log('ModelLoader: read', document);
-            const modelData = await this.processDocument(document);
-            // Store model data
-            this.loadedModels.set(modelId.id, modelData);
-            return {
-                id: modelId.id,
-                meshCount: modelData.meshes.length
-            };
+        /*    try { */
+        // Generate deterministic model ID from URL
+        const modelId = this.generateModelId(url);
+        // Check if already loaded
+        if (this.loadedModels.has(modelId.id)) {
+            return modelId;
         }
-        catch (error) {
-            const errorMessage = error instanceof Error
-                ? error.message
-                : 'Unknown error';
-            throw this.createModelError(ModelErrorCode.LOAD_FAILED, `Failed to load model: ${errorMessage}`);
-        }
+        // Load and parse GLB file
+        const document = await this.webio.read(url);
+        console.log('ModelLoader: read', document);
+        const modelData = await this.processDocument(document);
+        // Store model data
+        this.loadedModels.set(modelId.id, modelData);
+        return {
+            id: modelId.id,
+            meshCount: modelData.meshes.length
+        };
+        /*        } catch (error: unknown) {
+                    const errorMessage = error instanceof Error
+                        ? error.message
+                        : 'Unknown error';
+                        
+                    throw this.createModelError(
+                        ModelErrorCode.LOAD_FAILED,
+                        `Failed to load model: ${errorMessage}`
+                    );
+                }*/
     }
     getModelData(modelId) {
         return this.loadedModels.get(modelId) || null;
@@ -12746,6 +12749,7 @@ class ModelLoader {
             case 'TEXCOORD_0': return 2;
             case 'JOINTS_0': return 3;
             case 'WEIGHTS_0': return 4;
+            case 'TANGENT': return 5;
             default: throw this.createModelError(ModelErrorCode.INVALID_DATA, `Unsupported attribute semantic: ${semantic}`);
         }
     }
@@ -12832,6 +12836,12 @@ class GPUResourceManager {
         }
         return shader;
     }
+    setNormalMapEnabled(shader, enabled) {
+        const location = this.gl.getUniformLocation(shader, 'u_UseNormalMap');
+        if (location) {
+            this.gl.uniform1i(location, enabled ? 1 : 0);
+        }
+    }
     getDefaultShader() {
         const vertexShader = `#version 300 es
         layout(location = 0) in vec3 position;
@@ -12839,6 +12849,7 @@ class GPUResourceManager {
         layout(location = 2) in vec2 uv;
         layout(location = 3) in vec4 weights;
         layout(location = 4) in uvec4 joints;
+        layout(location = 5) in vec4 tangent;
 
         uniform mat4 u_Model;
         uniform mat4 u_View;
@@ -12849,11 +12860,19 @@ class GPUResourceManager {
         out vec2 vUv;
         out vec3 vNormal;
         out vec3 vPosition;
+        out mat3 vTBN;
 
         void main() {
             vUv = uv;
-            vNormal = u_NormalMatrix * normal;
-            vNormal = -vNormal;
+            vec3 N = normalize(u_NormalMatrix * normal);
+            vec3 T = normalize(u_NormalMatrix * tangent.xyz);
+            // Calculate bitangent using cross product and tangent.w for handedness
+            vec3 B = normalize(cross(N, T)) * tangent.w;
+            
+            // Create TBN matrix for transforming from tangent space to world space
+            vTBN = mat3(T, B, N);
+            
+            vNormal = N;
             vPosition = (u_Model * vec4(position, 1.0)).xyz;
             gl_Position = u_Projection * u_View * u_Model * vec4(position, 1.0);
         }`;
@@ -12863,7 +12882,7 @@ class GPUResourceManager {
         in vec2 vUv;
         in vec3 vNormal;
         in vec3 vPosition;
-
+        in mat3 vTBN;
         uniform vec3 lightPosition;
         uniform vec3 cameraPosition;
         uniform vec4 u_BaseColorFactor;
@@ -12877,27 +12896,50 @@ class GPUResourceManager {
         uniform sampler2D u_MetallicRoughnessSampler;
         uniform sampler2D u_OcclusionSampler;
         uniform sampler2D u_EmissiveSampler;
+        uniform bool u_UseNormalMap;
 
         layout(location = 0) out vec4 fragColor;
 
         void main() {
             vec3 fixedLightPosition = vec3(10, 0, 10);
-            vec3 N = normalize(vNormal);
-            vec3 L = normalize(fixedLightPosition - vPosition);
+            vec3 fixedEyePosition = vec3(0, 0, -200); // Eye position to the left of light
+            
+            vec3 N;
+            if (u_UseNormalMap) {
+                // Sample normal from normal map and transform to [-1,1] range
+                vec3 normalMap = texture(u_NormalSampler, vUv).rgb * 2.0 - 1.0;
+                // Transform normal from tangent space to world space using TBN matrix
+                N = normalize(vTBN * normalMap);
+            } else {
+                N = normalize(vNormal);
+            }
+            
+            vec3 L = -normalize(fixedLightPosition - vPosition);
+            vec3 V = normalize(fixedEyePosition - vPosition);
+            vec3 H = normalize(L + V);
 
             float dummy = u_MetallicFactor + u_RoughnessFactor + u_EmissiveFactor.x;
             dummy = dummy * 0.0001;
 
+
             float NdotL = max(dot(N, L), 0.0);
+            float NdotH = max(dot(N, H), 0.0);
+            float specularPower = 32.0;
+            float specular = pow(NdotH, specularPower);
+
             vec4 texColor = texture(u_BaseColorSampler, vUv);
             vec4 baseColor = texColor * u_BaseColorFactor;
 
             // Simple lighting calculation
             float ambient = 0.1;
-            fragColor = vec4(baseColor.rgb * (ambient + NdotL), baseColor.a);
-            // Debug visualization using normals as colors
-            // vec3 normalColor = (N + 1.0) * 0.5; // Convert from [-1,1] to [0,1] range
-            // fragColor = vec4(normalColor, 1.0);
+            vec3 diffuse = baseColor.rgb * NdotL;
+            vec3 specularColor = vec3(0.3) * specular; // White specular with 0.3 intensity
+
+            // Add emissive contribution
+            vec3 emissive = texture(u_EmissiveSampler, vUv).rgb * (u_EmissiveFactor+1.0);
+
+            // Combine all lighting components including emissive
+            fragColor = vec4(baseColor.rgb * ambient + diffuse + specularColor + emissive, baseColor.a);
         }`;
         return this.shaderSystem.createProgram(vertexShader, fragmentShader, 'default');
     }
@@ -12920,6 +12962,7 @@ class MaterialSystem {
         this.materials.set(this.materials.size, material);
     }
     bindMaterial(materialIndex, shader) {
+        debugger;
         if (this.currentMaterial === materialIndex)
             return;
         const material = this.materials.get(materialIndex);
@@ -12938,12 +12981,13 @@ class MaterialSystem {
             }
             const location = this.gl.getUniformLocation(shader, samplerName);
             if (location === null) {
-                // console.warn(`Uniform sampler '${samplerName}' not found in shader.`);
+                console.warn(`Uniform sampler '${samplerName}' not found in shader.`);
                 return;
             }
             this.gl.activeTexture(this.gl.TEXTURE0 + textureUnit);
             this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
             this.gl.uniform1i(location, textureUnit);
+            console.log(`Binding texture to unit ${textureUnit} for sampler '${samplerName}'`);
         });
         // Set material uniforms
         if (material.uniforms) {
@@ -14107,6 +14151,10 @@ class Model {
         this.instanceId = instanceId;
         this.manager = manager;
     }
+    setNormalMapEnabled(enabled) {
+        this.manager.setModelNormalMapEnabled(enabled, this);
+        console.log('Set normal map enabled:', enabled);
+    }
     setPosition(x, y, z) {
         this.manager.setModelPosition(x, y, z, this);
     }
@@ -14344,6 +14392,9 @@ class InstanceManager {
                 rotation: new Float32Array([0, 0, 0, 1]), // Quaternion
                 scale: new Float32Array([1, 1, 1])
             },
+            renderOptions: {
+                useNormalMap: false
+            },
             animationState: {
                 currentAnimation: null,
                 currentTime: 0,
@@ -14512,6 +14563,8 @@ class InstanceManager {
             const instance = this.instances.get(instanceId);
             if (!instance)
                 continue;
+            // Set normal map state for this instance
+            this.gpuResources.setNormalMapEnabled(this.defaultShaderProgram, instance.renderOptions.useNormalMap);
             // Update world matrix
             this.updateWorldMatrix(instance);
             // For each mesh in the model
@@ -14562,38 +14615,6 @@ class InstanceManager {
         this.gl.bindVertexArray(null);
         this.gl.useProgram(null);
     }
-    bindMaterial(material) {
-        // 2. Bind textures
-        material.textures.forEach((texture, samplerName) => {
-            const unit = SAMPLER_TEXTURE_UNIT_MAP[samplerName];
-            this.gl.activeTexture(this.gl.TEXTURE0 + unit);
-            this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
-        });
-        // 3. Set material uniforms
-        // TODO: move to GPUResourceManager
-        // TODO: handle material uniforms
-        /*
-        if (material.uniforms) {
-            for (const [name, value] of Object.entries(material.uniforms)) {
-                const location = this.gl.getUniformLocation(this.defaultShaderProgram, name);
-                if (location === null) continue;
-
-                if (Array.isArray(value)) {
-                    switch (value.length) {
-                        case 2: this.gl.uniform2fv(location, value); break;
-                        case 3: this.gl.uniform3fv(location, value); break;
-                        case 4: this.gl.uniform4fv(location, value); break;
-                        case 16: this.gl.uniformMatrix4fv(location, false, value); break;
-                    }
-                } else if (typeof value === 'number') {
-                    this.gl.uniform1f(location, value);
-                } else if (typeof value === 'boolean') {
-                    this.gl.uniform1i(location, value ? 1 : 0);
-                }
-            }
-        }
-        */
-    }
     startAnimation(instance, animationName, options) {
         var _a, _b;
         instance.animationState.currentAnimation = animationName;
@@ -14619,6 +14640,13 @@ class InstanceManager {
         // Remove instance data
         this.instances.delete(instanceId);
         this.dirtyInstances.delete(instanceId);
+    }
+    setModelNormalMapEnabled(enabled, instance) {
+        const instanceData = this.instances.get(instance.instanceId.id);
+        if (instanceData) {
+            instanceData.renderOptions.useNormalMap = enabled;
+            this.dirtyInstances.add(instance.instanceId.id);
+        }
     }
 }
 

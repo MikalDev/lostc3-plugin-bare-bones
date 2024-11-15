@@ -42,8 +42,8 @@ export declare class InstanceManager implements IInstanceManager {
     private updateGPUBuffers;
     private updateModelBuffers;
     private renderModelInstances;
-    private bindMaterial;
     private startAnimation;
     private cleanupInstance;
+    setModelNormalMapEnabled(enabled: boolean, instance: Model): void;
 }
 //# sourceMappingURL=InstanceManager.d.ts.map

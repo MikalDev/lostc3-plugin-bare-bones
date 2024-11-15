@@ -36,7 +36,8 @@
 
         // Load model
         // @ts-ignore
-        const modelPath = './test/assets/c-bio.glb';
+        const modelPath = './test/assets/c-bio-t.glb';
+        // const modelPath = './test/assets/c-bio.glb';
         // const modelPath = './test/assets/c-bug.glb';
         // const modelPath = './test/assets/CompareNormal.glb';
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -47,8 +48,8 @@
         const instance = instanceManager.createModel(model.id);
         console.log('Instance:', instance);
         instance.setRotation([0.2, 0.2, 0.2, 0.707]);
-        instance.setPosition(0, -100, 0);
-        instance.setScale(100, 100, 100);
+        instance.setPosition(0, -100, -100);
+        instance.setScale(70, 70, 70);
         console.log('Instance set');
         /*
         const instance2 = instanceManager.createModel(model.id);
@@ -65,27 +66,42 @@
         instanceManager.render(viewProjection);
 
         let rotation = 0;
+        let normalMapEnabled = false;
+
+        // Add event listener outside the render loop
+        document.addEventListener('keydown', (event) => {
+            if (event.key.toLowerCase() === 'n') {
+                normalMapEnabled = !normalMapEnabled;
+                if (instance.setNormalMapEnabled) {
+                    instance.setNormalMapEnabled(normalMapEnabled);
+                } else {
+                    console.warn('Normal map toggling is not supported for this instance', instance);
+                }
+                console.log('Normal map enabled:', normalMapEnabled);
+            }
+        });
 
         // Create render loop
         function render() {
             // Clear and render scene
             instanceManager.render(viewProjection);
+            
             // rotate the instance
-            rotation += 0.001;
+            rotation += 0.006;
+            /*
             instance.setQuaternion(
                 Math.sin(rotation/2) * Math.cos(rotation/2), // X component
                 Math.sin(rotation/2),                        // Y component
                 0,                                           // Z component
                 Math.cos(rotation/2) * Math.cos(rotation/2)  // W component
             );
-            /*
+            */
             instance.setQuaternion(
                 0,                    // X component
                 Math.sin(rotation/2), // Y component 
                 0,                    // Z component
                 Math.cos(rotation/2)  // W component
             );
-            */
             /*
             instance2.setQuaternion(
                 Math.sin(rotation/2) * Math.cos(rotation/2), // X component

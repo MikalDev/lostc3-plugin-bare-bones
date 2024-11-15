@@ -116,6 +116,9 @@ export class InstanceManager implements IInstanceManager {
                 rotation: new Float32Array([0, 0, 0, 1]), // Quaternion
                 scale: new Float32Array([1, 1, 1])
             },
+            renderOptions: {
+                useNormalMap: false
+            },
             animationState: {
                 currentAnimation: null,
                 currentTime: 0,
@@ -336,6 +339,13 @@ export class InstanceManager implements IInstanceManager {
         for (const instanceId of instanceGroup) {
             const instance = this.instances.get(instanceId);
             if (!instance) continue;
+
+            // Set normal map state for this instance
+            this.gpuResources.setNormalMapEnabled(
+                this.defaultShaderProgram, 
+                instance.renderOptions.useNormalMap
+            );
+
             // Update world matrix
             this.updateWorldMatrix(instance);
 
@@ -377,7 +387,6 @@ export class InstanceManager implements IInstanceManager {
                             this.gl.uniformMatrix4fv(jointMatricesLoc, false, instance.jointMatrices);
                         }
                     }
-
                     // 5. Bind material properties (textures and uniforms)
                     this.gpuResources.bindMaterial(primitive.material, shader);
 
@@ -403,40 +412,6 @@ export class InstanceManager implements IInstanceManager {
         // 7. Cleanup
         this.gl.bindVertexArray(null);
         this.gl.useProgram(null);
-    }
-
-    private bindMaterial(material: MaterialData): void {
-        // 2. Bind textures
-        material.textures.forEach((texture, samplerName) => {
-            const unit = SAMPLER_TEXTURE_UNIT_MAP[samplerName];
-            this.gl.activeTexture(this.gl.TEXTURE0 + unit);
-            this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
-        });
-
-        // 3. Set material uniforms
-        // TODO: move to GPUResourceManager
-        // TODO: handle material uniforms
-        /*
-        if (material.uniforms) {
-            for (const [name, value] of Object.entries(material.uniforms)) {
-                const location = this.gl.getUniformLocation(this.defaultShaderProgram, name);
-                if (location === null) continue;
-
-                if (Array.isArray(value)) {
-                    switch (value.length) {
-                        case 2: this.gl.uniform2fv(location, value); break;
-                        case 3: this.gl.uniform3fv(location, value); break;
-                        case 4: this.gl.uniform4fv(location, value); break;
-                        case 16: this.gl.uniformMatrix4fv(location, false, value); break;
-                    }
-                } else if (typeof value === 'number') {
-                    this.gl.uniform1f(location, value);
-                } else if (typeof value === 'boolean') {
-                    this.gl.uniform1i(location, value ? 1 : 0);
-                }
-            }
-        }
-        */
     }
 
     private startAnimation(
@@ -470,5 +445,13 @@ export class InstanceManager implements IInstanceManager {
         // Remove instance data
         this.instances.delete(instanceId);
         this.dirtyInstances.delete(instanceId);
+    }
+
+    public setModelNormalMapEnabled(enabled: boolean, instance: Model): void {
+        const instanceData = this.instances.get(instance.instanceId.id);
+        if (instanceData) {
+            instanceData.renderOptions.useNormalMap = enabled;
+            this.dirtyInstances.add(instance.instanceId.id);
+        }
     }
 }

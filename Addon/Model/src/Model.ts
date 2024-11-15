@@ -10,28 +10,33 @@ export class Model implements IModel {
         this.manager = manager;
     }
 
-    setPosition(x: number, y: number, z: number): void {
+    public setNormalMapEnabled(enabled: boolean): void {
+        this.manager.setModelNormalMapEnabled(enabled, this);
+        console.log('Set normal map enabled:', enabled);
+    }
+
+    public setPosition(x: number, y: number, z: number): void {
         this.manager.setModelPosition(x, y, z, this);
     }
 
-    setRotation(quaternion: Float32Array): void {
+    public setRotation(quaternion: Float32Array): void {
         this.manager.setModelRotation(quaternion, this);
     }
 
-    setScale(x: number, y: number, z: number): void {
+    public setScale(x: number, y: number, z: number): void {
         this.manager.setModelScale(x, y, z, this);
     }
 
-    playAnimation(animationName: string, options?: AnimationOptions): void {
+    public playAnimation(animationName: string, options?: AnimationOptions): void {
         this.manager.playModelAnimation(animationName, this, options);
     }
 
-    stopAnimation(): void {
+    public stopAnimation(): void {
         this.manager.stopModelAnimation(this);
     }
 
     // Additional convenience methods
-    setQuaternion(x: number, y: number, z: number, w: number): void {
+    public setQuaternion(x: number, y: number, z: number, w: number): void {
         const quat = new Float32Array([x, y, z, w]);
         this.manager.setModelRotation(
             quat,

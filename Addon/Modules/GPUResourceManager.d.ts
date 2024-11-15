@@ -17,6 +17,7 @@ export declare class GPUResourceManager implements IGPUResourceManager {
     dispose(): void;
     private createError;
     getShader(modelId: string): WebGLProgram;
+    setNormalMapEnabled(shader: WebGLProgram, enabled: boolean): void;
     getDefaultShader(): WebGLProgram;
     bindMaterial(materialIndex: number, shader: WebGLProgram): void;
     addMaterial(material: MaterialData): void;

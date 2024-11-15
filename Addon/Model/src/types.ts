@@ -94,6 +94,9 @@ export interface InstanceData {
     animationState: AnimationState;
     jointMatrices: Float32Array;
     worldMatrix: Float32Array;
+    renderOptions: {
+        useNormalMap: boolean;
+    };
 }
 
 // Main class interfaces
@@ -110,6 +113,7 @@ export interface IInstanceManager {
     setModelScale(x: number, y: number, z: number, instance: Model): void;
     playModelAnimation(name: string, instance: Model, options?: AnimationOptions): void;
     stopModelAnimation(instance: Model): void;
+    setModelNormalMapEnabled(enabled: boolean, instance: Model): void;
 }
 
 export interface IModel {
@@ -119,6 +123,7 @@ export interface IModel {
     setScale(x: number, y: number, z: number): void;
     playAnimation(name: string, options?: AnimationOptions): void;
     stopAnimation(): void;
+    setNormalMapEnabled(enabled: boolean): void;
 }
 
 export enum TextureType {
@@ -165,6 +170,7 @@ export interface IGPUResourceManager {
     createIndexBuffer(data: BufferSource, usage: BufferUsage): WebGLBuffer;
     bindMaterial(materialIndex: number, shader: WebGLProgram): void;
     addMaterial(material: MaterialData): void;
+    setNormalMapEnabled(program: WebGLProgram, enabled: boolean): void;
 }
 
 // Add this type definition

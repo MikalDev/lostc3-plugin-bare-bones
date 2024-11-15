@@ -124,6 +124,13 @@ export class GPUResourceManager implements IGPUResourceManager {
         return shader;
     }
 
+    setNormalMapEnabled(shader: WebGLProgram, enabled: boolean): void {
+        const location = this.gl.getUniformLocation(shader, 'u_UseNormalMap');
+        if (location) {
+            this.gl.uniform1i(location, enabled ? 1 : 0);
+        }
+    }
+
     getDefaultShader(): WebGLProgram {
         const vertexShader = `#version 300 es
         layout(location = 0) in vec3 position;
@@ -131,6 +138,7 @@ export class GPUResourceManager implements IGPUResourceManager {
         layout(location = 2) in vec2 uv;
         layout(location = 3) in vec4 weights;
         layout(location = 4) in uvec4 joints;
+        layout(location = 5) in vec4 tangent;
 
         uniform mat4 u_Model;
         uniform mat4 u_View;
@@ -141,11 +149,19 @@ export class GPUResourceManager implements IGPUResourceManager {
         out vec2 vUv;
         out vec3 vNormal;
         out vec3 vPosition;
+        out mat3 vTBN;
 
         void main() {
             vUv = uv;
-            vNormal = u_NormalMatrix * normal;
-            vNormal = -vNormal;
+            vec3 N = normalize(u_NormalMatrix * normal);
+            vec3 T = normalize(u_NormalMatrix * tangent.xyz);
+            // Calculate bitangent using cross product and tangent.w for handedness
+            vec3 B = normalize(cross(N, T)) * tangent.w;
+            
+            // Create TBN matrix for transforming from tangent space to world space
+            vTBN = mat3(T, B, N);
+            
+            vNormal = N;
             vPosition = (u_Model * vec4(position, 1.0)).xyz;
             gl_Position = u_Projection * u_View * u_Model * vec4(position, 1.0);
         }`;
@@ -156,7 +172,7 @@ export class GPUResourceManager implements IGPUResourceManager {
         in vec2 vUv;
         in vec3 vNormal;
         in vec3 vPosition;
-
+        in mat3 vTBN;
         uniform vec3 lightPosition;
         uniform vec3 cameraPosition;
         uniform vec4 u_BaseColorFactor;
@@ -170,27 +186,50 @@ export class GPUResourceManager implements IGPUResourceManager {
         uniform sampler2D u_MetallicRoughnessSampler;
         uniform sampler2D u_OcclusionSampler;
         uniform sampler2D u_EmissiveSampler;
+        uniform bool u_UseNormalMap;
 
         layout(location = 0) out vec4 fragColor;
 
         void main() {
             vec3 fixedLightPosition = vec3(10, 0, 10);
-            vec3 N = normalize(vNormal);
-            vec3 L = normalize(fixedLightPosition - vPosition);
+            vec3 fixedEyePosition = vec3(0, 0, -200); // Eye position to the left of light
+            
+            vec3 N;
+            if (u_UseNormalMap) {
+                // Sample normal from normal map and transform to [-1,1] range
+                vec3 normalMap = texture(u_NormalSampler, vUv).rgb * 2.0 - 1.0;
+                // Transform normal from tangent space to world space using TBN matrix
+                N = normalize(vTBN * normalMap);
+            } else {
+                N = normalize(vNormal);
+            }
+            
+            vec3 L = -normalize(fixedLightPosition - vPosition);
+            vec3 V = normalize(fixedEyePosition - vPosition);
+            vec3 H = normalize(L + V);
 
             float dummy = u_MetallicFactor + u_RoughnessFactor + u_EmissiveFactor.x;
             dummy = dummy * 0.0001;
 
+
             float NdotL = max(dot(N, L), 0.0);
+            float NdotH = max(dot(N, H), 0.0);
+            float specularPower = 32.0;
+            float specular = pow(NdotH, specularPower);
+
             vec4 texColor = texture(u_BaseColorSampler, vUv);
             vec4 baseColor = texColor * u_BaseColorFactor;
 
             // Simple lighting calculation
             float ambient = 0.1;
-            fragColor = vec4(baseColor.rgb * (ambient + NdotL), baseColor.a);
-            // Debug visualization using normals as colors
-            // vec3 normalColor = (N + 1.0) * 0.5; // Convert from [-1,1] to [0,1] range
-            // fragColor = vec4(normalColor, 1.0);
+            vec3 diffuse = baseColor.rgb * NdotL;
+            vec3 specularColor = vec3(0.3) * specular; // White specular with 0.3 intensity
+
+            // Add emissive contribution
+            vec3 emissive = texture(u_EmissiveSampler, vUv).rgb * (u_EmissiveFactor+1.0);
+
+            // Combine all lighting components including emissive
+            fragColor = vec4(baseColor.rgb * ambient + diffuse + specularColor + emissive, baseColor.a);
         }`;
 
         return this.shaderSystem.createProgram(vertexShader, fragmentShader, 'default');
@@ -229,6 +268,7 @@ export class MaterialSystem {
     }
 
     bindMaterial(materialIndex: number, shader: WebGLProgram): void {
+        debugger
         if (this.currentMaterial === materialIndex) return;
 
         const material = this.materials.get(materialIndex);
@@ -249,13 +289,14 @@ export class MaterialSystem {
 
             const location = this.gl.getUniformLocation(shader, samplerName);
             if (location === null) {
-                // console.warn(`Uniform sampler '${samplerName}' not found in shader.`);
+                console.warn(`Uniform sampler '${samplerName}' not found in shader.`);
                 return;
             }
 
             this.gl.activeTexture(this.gl.TEXTURE0 + textureUnit);
             this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
             this.gl.uniform1i(location, textureUnit);
+            console.log(`Binding texture to unit ${textureUnit} for sampler '${samplerName}'`);
         });
 
         // Set material uniforms

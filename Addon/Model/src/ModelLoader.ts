@@ -27,7 +27,7 @@ export class ModelLoader implements IModelLoader {
     }
 
     async loadModel(url: string): Promise<ModelId> {
-        try {
+    /*    try { */
             // Generate deterministic model ID from URL
             const modelId = this.generateModelId(url);
             
@@ -49,7 +49,7 @@ export class ModelLoader implements IModelLoader {
                 meshCount: modelData.meshes.length
             };
 
-        } catch (error: unknown) {
+/*        } catch (error: unknown) {
             const errorMessage = error instanceof Error 
                 ? error.message 
                 : 'Unknown error';
@@ -58,7 +58,7 @@ export class ModelLoader implements IModelLoader {
                 ModelErrorCode.LOAD_FAILED,
                 `Failed to load model: ${errorMessage}`
             );
-        }
+        }*/
     }
 
     getModelData(modelId: string): ModelData | null {
@@ -567,6 +567,7 @@ export class ModelLoader implements IModelLoader {
             case 'TEXCOORD_0': return 2;
             case 'JOINTS_0': return 3;
             case 'WEIGHTS_0': return 4;
+            case 'TANGENT': return 5;
             default: throw this.createModelError(
                 ModelErrorCode.INVALID_DATA,
                 `Unsupported attribute semantic: ${semantic}`
