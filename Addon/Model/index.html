@@ -18,6 +18,7 @@
 
         // Get WebGL context
         const canvas = document.getElementById('glCanvas');
+        if (canvas) canvas.style.backgroundColor = '#202010';
         // @ts-ignore
         const gl = canvas.getContext('webgl2');
         
@@ -46,11 +47,65 @@
         
         // Create instance
         const instance = instanceManager.createModel(model.id);
+        const instance2 = instanceManager.createModel(model.id);
+        const instance3 = instanceManager.createModel(model.id);
         console.log('Instance:', instance);
-        instance.setRotation([0.2, 0.2, 0.2, 0.707]);
-        instance.setPosition(0, -100, -100);
-        instance.setScale(70, 70, 70);
+        instance.setRotation([0.0, 0.0, 0.0, 1.0]);
+        instance.setPosition(0, -200, 0);
+        instance.setScale(200, 200, 200);
+
+        instance2.setRotation([0.0, 0.0, 0.0, 1.0]);
+        instance2.setPosition(100, -200, 0);
+        instance2.setScale(200, 200, 200);
+
+        instance3.setRotation([0.0, 0.0, 0.0, 1.0]);
+        instance3.setPosition(-100, -200, 0);
+        instance3.setScale(200, 200, 200);
+
         console.log('Instance set');
+        // Set up point light
+        gpuResourceManager.updateLight(0, {
+            type: 'point',
+            enabled: true,
+            position: [0, 10, 400],
+            color: [1.0, 1.0, 1.0],
+            intensity: 1.0,
+            attenuation: 0.0000001
+        });
+        gpuResourceManager.updateLight(1, {
+            type: 'spot',
+            enabled: true,
+            position: [-100, 30, 400],
+            color: [1.0, 0, 0],
+            intensity: 4.0,
+            attenuation: 0.0000001,
+            direction: [0, 0, -1],
+            spotAngle: 0.99,
+            spotPenumbra: 0.00
+        });
+        gpuResourceManager.updateLight(2, {
+            type: 'spot',
+            enabled: true,
+            position: [100, 30, 400],
+            color: [0.0, 0, 1.0],
+            intensity: 4.0,
+            attenuation: 0.0000001,
+            direction: [0, 0, -1],
+            spotAngle: 0.99,
+            spotPenumbra: 0.001
+        });
+        gpuResourceManager.updateLight(3, {
+            type: 'spot',
+            enabled: true,
+            position: [0, 30, 400],
+            color: [0.0, 1.0, 0.0],
+            intensity: 4.0,
+            attenuation: 0.0000001,
+            direction: [0, 0, -1],
+            spotAngle: 0.99,
+            spotPenumbra: 0.001
+        });
+        gpuResourceManager.updateCameraPosition([20, 20, 300]);
         /*
         const instance2 = instanceManager.createModel(model.id);
         instance2.setRotation([0.2, 0.2, 0.2, 0.707]);
@@ -60,7 +115,7 @@
         */
 
         // Create view projection matrix
-        const viewProjection = instanceManager.createViewProjection(60, { width: canvas.width, height: canvas.height }, 0.1, 1000, [0, 0, -200], [0, 0, 0], [0, 1, 0]);
+        const viewProjection = instanceManager.createViewProjection(60, { width: canvas.width, height: canvas.height }, 0.1, 1000, [0, 0, 300], [0, 0, 0], [0, 1, 0]);
 
         // Render
         instanceManager.render(viewProjection);
@@ -74,6 +129,8 @@
                 normalMapEnabled = !normalMapEnabled;
                 if (instance.setNormalMapEnabled) {
                     instance.setNormalMapEnabled(normalMapEnabled);
+                    instance2.setNormalMapEnabled(normalMapEnabled);
+                    instance3.setNormalMapEnabled(normalMapEnabled);
                 } else {
                     console.warn('Normal map toggling is not supported for this instance', instance);
                 }
@@ -87,7 +144,7 @@
             instanceManager.render(viewProjection);
             
             // rotate the instance
-            rotation += 0.006;
+            rotation += 0.015;
             /*
             instance.setQuaternion(
                 Math.sin(rotation/2) * Math.cos(rotation/2), // X component
@@ -96,11 +153,17 @@
                 Math.cos(rotation/2) * Math.cos(rotation/2)  // W component
             );
             */
-            instance.setQuaternion(
+            instance3.setQuaternion(
                 0,                    // X component
                 Math.sin(rotation/2), // Y component 
                 0,                    // Z component
                 Math.cos(rotation/2)  // W component
+            );
+            instance2.setQuaternion(
+                0,                    // X component
+                Math.cos(rotation/2), // Y component 
+                0,                    // Z component
+                Math.sin(rotation/2)  // W component
             );
             /*
             instance2.setQuaternion(

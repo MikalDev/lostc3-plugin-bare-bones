@@ -66,7 +66,8 @@ export interface InstanceData {
     jointMatrices: Float32Array;
     worldMatrix: Float32Array;
     renderOptions: {
-        useNormalMap: boolean;
+        useNormalMap?: boolean;
+        lightPosition?: [number, number, number];
     };
 }
 export interface IModelLoader {
@@ -130,6 +131,37 @@ export interface IGPUResourceManager {
     bindMaterial(materialIndex: number, shader: WebGLProgram): void;
     addMaterial(material: MaterialData): void;
     setNormalMapEnabled(program: WebGLProgram, enabled: boolean): void;
+    setLightPosition(program: WebGLProgram, lightPosition: [number, number, number]): void;
+    updateLight(index: number, lightParams: Partial<Light>): void;
+    setLightEnabled(index: number, enabled: boolean): void;
+    setLightDirection(index: number, direction: [number, number, number]): void;
+    setLightColor(index: number, color: [number, number, number]): void;
+    setLightIntensity(index: number, intensity: number): void;
+    setSpotLightParams(index: number, angle: number, penumbra: number): void;
+    bindShaderAndMaterial(shader: WebGLProgram, materialIndex: number): void;
 }
 export type AttributeSemantic = 'POSITION' | 'NORMAL' | 'TEXCOORD_0' | 'JOINTS_0' | 'WEIGHTS_0';
+export interface LightBase {
+    enabled: boolean;
+    color: [number, number, number];
+    intensity: number;
+}
+export interface PointLight extends LightBase {
+    type: 'point';
+    position: [number, number, number];
+    attenuation: number;
+}
+export interface DirectionalLight extends LightBase {
+    type: 'directional';
+    direction: [number, number, number];
+}
+export interface SpotLight extends LightBase {
+    type: 'spot';
+    position: [number, number, number];
+    direction: [number, number, number];
+    spotAngle: number;
+    spotPenumbra: number;
+    attenuation: number;
+}
+export type Light = PointLight | DirectionalLight | SpotLight;
 //# sourceMappingURL=types.d.ts.map

@@ -37,7 +37,7 @@ export class InstanceManager implements IInstanceManager {
 
     initialize(): void {
         // Basic WebGL2 initialization
-        this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        this.gl.clearColor(0.1, 0.1, 0.1, 1.0);
         this.gl.enable(this.gl.DEPTH_TEST);
         this.gl.enable(this.gl.CULL_FACE);
         this.gl.cullFace(this.gl.BACK);
@@ -340,10 +340,12 @@ export class InstanceManager implements IInstanceManager {
             const instance = this.instances.get(instanceId);
             if (!instance) continue;
 
+            const renderOptions = instance.renderOptions;
+
             // Set normal map state for this instance
             this.gpuResources.setNormalMapEnabled(
                 this.defaultShaderProgram, 
-                instance.renderOptions.useNormalMap
+                renderOptions.useNormalMap ?? false
             );
 
             // Update world matrix
@@ -388,7 +390,7 @@ export class InstanceManager implements IInstanceManager {
                         }
                     }
                     // 5. Bind material properties (textures and uniforms)
-                    this.gpuResources.bindMaterial(primitive.material, shader);
+                    this.gpuResources.bindShaderAndMaterial(this.defaultShaderProgram, primitive.material);
 
                     // 6. Draw
                     if (primitive.indexBuffer) {

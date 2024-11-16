@@ -1,4 +1,4 @@
-import { MaterialData, IGPUResourceManager } from './types';
+import { MaterialData, IGPUResourceManager, Light } from './types';
 export declare class GPUResourceManager implements IGPUResourceManager {
     private gl;
     private shaderSystem;
@@ -6,6 +6,12 @@ export declare class GPUResourceManager implements IGPUResourceManager {
     private buffers;
     private textures;
     private vaos;
+    private readonly MAX_LIGHTS;
+    private lights;
+    private dirtyLightParams;
+    private dirtyLightStates;
+    private cameraPosition;
+    private dirtyCameraPosition;
     constructor(gl: WebGL2RenderingContext);
     createBuffer(data: BufferSource, usage: number): WebGLBuffer;
     createIndexBuffer(data: BufferSource, usage: number): WebGLBuffer;
@@ -18,9 +24,23 @@ export declare class GPUResourceManager implements IGPUResourceManager {
     private createError;
     getShader(modelId: string): WebGLProgram;
     setNormalMapEnabled(shader: WebGLProgram, enabled: boolean): void;
+    setLightPosition(shader: WebGLProgram, lightPosition: [number, number, number]): void;
     getDefaultShader(): WebGLProgram;
     bindMaterial(materialIndex: number, shader: WebGLProgram): void;
     addMaterial(material: MaterialData): void;
+    updateLight(index: number, lightParams: Partial<Light>): void;
+    updateCameraPosition(position: [number, number, number]): void;
+    setLightEnabled(index: number, enabled: boolean): void;
+    private updateLightUniforms;
+    private updateCameraPositionUniforms;
+    private updateAllLightUniforms;
+    private updateLightEnableStates;
+    private getLightTypeValue;
+    bindShaderAndMaterial(shader: WebGLProgram, materialIndex: number): void;
+    setLightDirection(index: number, direction: [number, number, number]): void;
+    setLightColor(index: number, color: [number, number, number]): void;
+    setLightIntensity(index: number, intensity: number): void;
+    setSpotLightParams(index: number, angle: number, penumbra: number): void;
 }
 export declare class MaterialSystem {
     private gl;

@@ -12,7 +12,6 @@ export class Model implements IModel {
 
     public setNormalMapEnabled(enabled: boolean): void {
         this.manager.setModelNormalMapEnabled(enabled, this);
-        console.log('Set normal map enabled:', enabled);
     }
 
     public setPosition(x: number, y: number, z: number): void {
