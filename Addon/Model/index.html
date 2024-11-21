@@ -18,7 +18,7 @@
 
         // Get WebGL context
         const canvas = document.getElementById('glCanvas');
-        if (canvas) canvas.style.backgroundColor = '#202010';
+        if (canvas) canvas.style.backgroundColor = '#F0F010';
         // @ts-ignore
         const gl = canvas.getContext('webgl2');
         
@@ -37,30 +37,41 @@
 
         // Load model
         // @ts-ignore
-        const modelPath = './test/assets/c-bio-t.glb';
+        // const modelPath = './test/assets/RiggedSimple.glb';
+        // const modelPath = './test/assets/BoxAnimated.glb';
+        const modelPath = './test/assets/cleric.gltf';
+        const modelPath2 = './test/assets/animated-cube.glb';
+        // const modelPath = './test/assets/c-bio-t.glb';
         // const modelPath = './test/assets/c-bio.glb';
         // const modelPath = './test/assets/c-bug.glb';
         // const modelPath = './test/assets/CompareNormal.glb';
+        // @ts-ignore
         await new Promise(resolve => setTimeout(resolve, 500));
+        // @ts-ignore
         const model = await modelLoader.loadModel(modelPath);
-        console.log('Model loaded successfully:', model.id, modelPath);
+        console.info('Model loaded successfully:', model.id, modelPath);
+        // @ts-ignore
+        const model3 = await modelLoader.loadModel(modelPath2);
+        console.info('Model3 loaded successfully:', model3.id, modelPath2);
         
         // Create instance
         const instance = instanceManager.createModel(model.id);
         const instance2 = instanceManager.createModel(model.id);
-        const instance3 = instanceManager.createModel(model.id);
+        const instance3 = instanceManager.createModel(model3.id);
+
+        //const instance3 = instanceManager.createModel(model.id);
         console.log('Instance:', instance);
-        instance.setRotation([0.0, 0.0, 0.0, 1.0]);
-        instance.setPosition(0, -200, 0);
-        instance.setScale(200, 200, 200);
+        instance.setRotation([ 0, 0.0, 0.0, 0 ]);
+        instance.setPosition(0, -100, 0);
+        instance.setScale(50, 50, 50);
 
         instance2.setRotation([0.0, 0.0, 0.0, 1.0]);
-        instance2.setPosition(100, -200, 0);
-        instance2.setScale(200, 200, 200);
+        instance2.setPosition(100, -100, 0);
+        instance2.setScale(30, 30, 30);
 
         instance3.setRotation([0.0, 0.0, 0.0, 1.0]);
-        instance3.setPosition(-100, -200, 0);
-        instance3.setScale(200, 200, 200);
+        instance3.setPosition(-100, 0, 0);
+        instance3.setScale(50, 50, 50);
 
         console.log('Instance set');
         // Set up point light
@@ -115,6 +126,7 @@
         */
 
         // Create view projection matrix
+        // @ts-ignore
         const viewProjection = instanceManager.createViewProjection(60, { width: canvas.width, height: canvas.height }, 0.1, 1000, [0, 0, 300], [0, 0, 0], [0, 1, 0]);
 
         // Render
@@ -129,8 +141,8 @@
                 normalMapEnabled = !normalMapEnabled;
                 if (instance.setNormalMapEnabled) {
                     instance.setNormalMapEnabled(normalMapEnabled);
-                    instance2.setNormalMapEnabled(normalMapEnabled);
-                    instance3.setNormalMapEnabled(normalMapEnabled);
+                    //instance2.setNormalMapEnabled(normalMapEnabled);
+                    //instance3.setNormalMapEnabled(normalMapEnabled);
                 } else {
                     console.warn('Normal map toggling is not supported for this instance', instance);
                 }
@@ -138,33 +150,41 @@
             }
         });
 
+        const animationController = instanceManager.animationController;
+        instance3.playAnimation('animation_AnimatedCube', {loop: true});
+        instance.playAnimation('Walk', {loop: true});
+        instance2.playAnimation('Walk', {loop: true});
+        // instance.playAnimation('', {loop: true});
+
         // Create render loop
         function render() {
-            // Clear and render scene
-            instanceManager.render(viewProjection);
-            
-            // rotate the instance
-            rotation += 0.015;
-            /*
+            // Animate the instance
+            instance.updateAnimation(0.008);
+            instance2.updateAnimation(0.016);
+            instance3.updateAnimation(0.001);
+            rotation += 0.01;
             instance.setQuaternion(
-                Math.sin(rotation/2) * Math.cos(rotation/2), // X component
-                Math.sin(rotation/2),                        // Y component
-                0,                                           // Z component
-                Math.cos(rotation/2) * Math.cos(rotation/2)  // W component
-            );
-            */
-            instance3.setQuaternion(
                 0,                    // X component
                 Math.sin(rotation/2), // Y component 
                 0,                    // Z component
                 Math.cos(rotation/2)  // W component
-            );
-            instance2.setQuaternion(
-                0,                    // X component
-                Math.cos(rotation/2), // Y component 
-                0,                    // Z component
-                Math.sin(rotation/2)  // W component
-            );
+            );            
+
+            // Clear and render scene
+            instanceManager.render(viewProjection);
+
+            //instance3.setQuaternion(
+            //    0,                    // X component
+            //    Math.sin(rotation/2), // Y component 
+            //    0,                    // Z component
+            //    Math.cos(rotation/2)  // W component
+            //);
+            //instance2.setQuaternion(
+            //    0,                    // X component
+            //    Math.cos(rotation/2), // Y component 
+            //    0,                    // Z component
+            //    Math.sin(rotation/2)  // W component
+            //);
             /*
             instance2.setQuaternion(
                 Math.sin(rotation/2) * Math.cos(rotation/2), // X component

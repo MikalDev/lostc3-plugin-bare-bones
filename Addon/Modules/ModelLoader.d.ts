@@ -1,4 +1,4 @@
-import { ModelId, ModelData, IGPUResourceManager, AnimationClip, IModelLoader } from './types';
+import { ModelId, ModelData, IGPUResourceManager, IModelLoader } from './types';
 export declare class ModelLoader implements IModelLoader {
     gl: WebGL2RenderingContext;
     private loadedModels;
@@ -10,7 +10,9 @@ export declare class ModelLoader implements IModelLoader {
     getModelData(modelId: string): ModelData | null;
     deleteModel(modelId: string): void;
     private processDocument;
+    private processRenderableNodes;
     private processMeshes;
+    private processMesh;
     private processPrimitive;
     private getMaterialIndex;
     private processMaterials;
@@ -24,10 +26,6 @@ export declare class ModelLoader implements IModelLoader {
     private loadTexture;
     private loadImage;
     private getIndexType;
-    private calculateAnimationDuration;
-    private processAnimationTrack;
-    getAnimation(modelId: string, animationName: string): AnimationClip | undefined;
-    private createGLBuffer;
     private getAttributeLocation;
 }
 //# sourceMappingURL=ModelLoader.d.ts.map

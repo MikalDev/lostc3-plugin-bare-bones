@@ -1508,7 +1508,7 @@ function multiply$1(out, a, b) {
  * @return {vec3} out
  */
 
-function getScaling(out, mat) {
+function getScaling$1(out, mat) {
   var m11 = mat[0];
   var m12 = mat[1];
   var m13 = mat[2];
@@ -1533,9 +1533,9 @@ function getScaling(out, mat) {
  * @return {quat} out
  */
 
-function getRotation(out, mat) {
+function getRotation$1(out, mat) {
   var scaling = new ARRAY_TYPE$1(3);
-  getScaling(scaling, mat);
+  getScaling$1(scaling, mat);
   var is1 = 1 / scaling[0];
   var is2 = 1 / scaling[1];
   var is3 = 1 / scaling[2];
@@ -1678,7 +1678,7 @@ class MathUtils {
     _m1[8] *= invSZ;
     _m1[9] *= invSZ;
     _m1[10] *= invSZ;
-    getRotation(dstRotation, _m1);
+    getRotation$1(dstRotation, _m1);
     dstScale[0] = sx;
     dstScale[1] = sy;
     dstScale[2] = sz;
@@ -12318,6 +12318,1247 @@ else if (typeof define === 'function' && define['amd'])
 else if (typeof exports === 'object')
   exports["DracoDecoderModule"] = DracoDecoderModule;
 
+/**
+ * Common utilities
+ * @module glMatrix
+ */
+// Configuration Constants
+var EPSILON = 0.000001;
+var ARRAY_TYPE = typeof Float32Array !== 'undefined' ? Float32Array : Array;
+if (!Math.hypot) Math.hypot = function () {
+  var y = 0,
+      i = arguments.length;
+
+  while (i--) {
+    y += arguments[i] * arguments[i];
+  }
+
+  return Math.sqrt(y);
+};
+
+/**
+ * 3x3 Matrix
+ * @module mat3
+ */
+
+/**
+ * Creates a new identity mat3
+ *
+ * @returns {mat3} a new 3x3 matrix
+ */
+
+function create$4() {
+  var out = new ARRAY_TYPE(9);
+
+  if (ARRAY_TYPE != Float32Array) {
+    out[1] = 0;
+    out[2] = 0;
+    out[3] = 0;
+    out[5] = 0;
+    out[6] = 0;
+    out[7] = 0;
+  }
+
+  out[0] = 1;
+  out[4] = 1;
+  out[8] = 1;
+  return out;
+}
+/**
+ * Calculates a 3x3 normal matrix (transpose inverse) from the 4x4 matrix
+ *
+ * @param {mat3} out mat3 receiving operation result
+ * @param {ReadonlyMat4} a Mat4 to derive the normal matrix from
+ *
+ * @returns {mat3} out
+ */
+
+function normalFromMat4(out, a) {
+  var a00 = a[0],
+      a01 = a[1],
+      a02 = a[2],
+      a03 = a[3];
+  var a10 = a[4],
+      a11 = a[5],
+      a12 = a[6],
+      a13 = a[7];
+  var a20 = a[8],
+      a21 = a[9],
+      a22 = a[10],
+      a23 = a[11];
+  var a30 = a[12],
+      a31 = a[13],
+      a32 = a[14],
+      a33 = a[15];
+  var b00 = a00 * a11 - a01 * a10;
+  var b01 = a00 * a12 - a02 * a10;
+  var b02 = a00 * a13 - a03 * a10;
+  var b03 = a01 * a12 - a02 * a11;
+  var b04 = a01 * a13 - a03 * a11;
+  var b05 = a02 * a13 - a03 * a12;
+  var b06 = a20 * a31 - a21 * a30;
+  var b07 = a20 * a32 - a22 * a30;
+  var b08 = a20 * a33 - a23 * a30;
+  var b09 = a21 * a32 - a22 * a31;
+  var b10 = a21 * a33 - a23 * a31;
+  var b11 = a22 * a33 - a23 * a32; // Calculate the determinant
+
+  var det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
+
+  if (!det) {
+    return null;
+  }
+
+  det = 1.0 / det;
+  out[0] = (a11 * b11 - a12 * b10 + a13 * b09) * det;
+  out[1] = (a12 * b08 - a10 * b11 - a13 * b07) * det;
+  out[2] = (a10 * b10 - a11 * b08 + a13 * b06) * det;
+  out[3] = (a02 * b10 - a01 * b11 - a03 * b09) * det;
+  out[4] = (a00 * b11 - a02 * b08 + a03 * b07) * det;
+  out[5] = (a01 * b08 - a00 * b10 - a03 * b06) * det;
+  out[6] = (a31 * b05 - a32 * b04 + a33 * b03) * det;
+  out[7] = (a32 * b02 - a30 * b05 - a33 * b01) * det;
+  out[8] = (a30 * b04 - a31 * b02 + a33 * b00) * det;
+  return out;
+}
+
+/**
+ * 4x4 Matrix<br>Format: column-major, when typed out it looks like row-major<br>The matrices are being post multiplied.
+ * @module mat4
+ */
+
+/**
+ * Creates a new identity mat4
+ *
+ * @returns {mat4} a new 4x4 matrix
+ */
+
+function create$3() {
+  var out = new ARRAY_TYPE(16);
+
+  if (ARRAY_TYPE != Float32Array) {
+    out[1] = 0;
+    out[2] = 0;
+    out[3] = 0;
+    out[4] = 0;
+    out[6] = 0;
+    out[7] = 0;
+    out[8] = 0;
+    out[9] = 0;
+    out[11] = 0;
+    out[12] = 0;
+    out[13] = 0;
+    out[14] = 0;
+  }
+
+  out[0] = 1;
+  out[5] = 1;
+  out[10] = 1;
+  out[15] = 1;
+  return out;
+}
+/**
+ * Create a new mat4 with the given values
+ *
+ * @param {Number} m00 Component in column 0, row 0 position (index 0)
+ * @param {Number} m01 Component in column 0, row 1 position (index 1)
+ * @param {Number} m02 Component in column 0, row 2 position (index 2)
+ * @param {Number} m03 Component in column 0, row 3 position (index 3)
+ * @param {Number} m10 Component in column 1, row 0 position (index 4)
+ * @param {Number} m11 Component in column 1, row 1 position (index 5)
+ * @param {Number} m12 Component in column 1, row 2 position (index 6)
+ * @param {Number} m13 Component in column 1, row 3 position (index 7)
+ * @param {Number} m20 Component in column 2, row 0 position (index 8)
+ * @param {Number} m21 Component in column 2, row 1 position (index 9)
+ * @param {Number} m22 Component in column 2, row 2 position (index 10)
+ * @param {Number} m23 Component in column 2, row 3 position (index 11)
+ * @param {Number} m30 Component in column 3, row 0 position (index 12)
+ * @param {Number} m31 Component in column 3, row 1 position (index 13)
+ * @param {Number} m32 Component in column 3, row 2 position (index 14)
+ * @param {Number} m33 Component in column 3, row 3 position (index 15)
+ * @returns {mat4} A new mat4
+ */
+
+function fromValues$1(m00, m01, m02, m03, m10, m11, m12, m13, m20, m21, m22, m23, m30, m31, m32, m33) {
+  var out = new ARRAY_TYPE(16);
+  out[0] = m00;
+  out[1] = m01;
+  out[2] = m02;
+  out[3] = m03;
+  out[4] = m10;
+  out[5] = m11;
+  out[6] = m12;
+  out[7] = m13;
+  out[8] = m20;
+  out[9] = m21;
+  out[10] = m22;
+  out[11] = m23;
+  out[12] = m30;
+  out[13] = m31;
+  out[14] = m32;
+  out[15] = m33;
+  return out;
+}
+/**
+ * Set a mat4 to the identity matrix
+ *
+ * @param {mat4} out the receiving matrix
+ * @returns {mat4} out
+ */
+
+function identity(out) {
+  out[0] = 1;
+  out[1] = 0;
+  out[2] = 0;
+  out[3] = 0;
+  out[4] = 0;
+  out[5] = 1;
+  out[6] = 0;
+  out[7] = 0;
+  out[8] = 0;
+  out[9] = 0;
+  out[10] = 1;
+  out[11] = 0;
+  out[12] = 0;
+  out[13] = 0;
+  out[14] = 0;
+  out[15] = 1;
+  return out;
+}
+/**
+ * Inverts a mat4
+ *
+ * @param {mat4} out the receiving matrix
+ * @param {ReadonlyMat4} a the source matrix
+ * @returns {mat4} out
+ */
+
+function invert(out, a) {
+  var a00 = a[0],
+      a01 = a[1],
+      a02 = a[2],
+      a03 = a[3];
+  var a10 = a[4],
+      a11 = a[5],
+      a12 = a[6],
+      a13 = a[7];
+  var a20 = a[8],
+      a21 = a[9],
+      a22 = a[10],
+      a23 = a[11];
+  var a30 = a[12],
+      a31 = a[13],
+      a32 = a[14],
+      a33 = a[15];
+  var b00 = a00 * a11 - a01 * a10;
+  var b01 = a00 * a12 - a02 * a10;
+  var b02 = a00 * a13 - a03 * a10;
+  var b03 = a01 * a12 - a02 * a11;
+  var b04 = a01 * a13 - a03 * a11;
+  var b05 = a02 * a13 - a03 * a12;
+  var b06 = a20 * a31 - a21 * a30;
+  var b07 = a20 * a32 - a22 * a30;
+  var b08 = a20 * a33 - a23 * a30;
+  var b09 = a21 * a32 - a22 * a31;
+  var b10 = a21 * a33 - a23 * a31;
+  var b11 = a22 * a33 - a23 * a32; // Calculate the determinant
+
+  var det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
+
+  if (!det) {
+    return null;
+  }
+
+  det = 1.0 / det;
+  out[0] = (a11 * b11 - a12 * b10 + a13 * b09) * det;
+  out[1] = (a02 * b10 - a01 * b11 - a03 * b09) * det;
+  out[2] = (a31 * b05 - a32 * b04 + a33 * b03) * det;
+  out[3] = (a22 * b04 - a21 * b05 - a23 * b03) * det;
+  out[4] = (a12 * b08 - a10 * b11 - a13 * b07) * det;
+  out[5] = (a00 * b11 - a02 * b08 + a03 * b07) * det;
+  out[6] = (a32 * b02 - a30 * b05 - a33 * b01) * det;
+  out[7] = (a20 * b05 - a22 * b02 + a23 * b01) * det;
+  out[8] = (a10 * b10 - a11 * b08 + a13 * b06) * det;
+  out[9] = (a01 * b08 - a00 * b10 - a03 * b06) * det;
+  out[10] = (a30 * b04 - a31 * b02 + a33 * b00) * det;
+  out[11] = (a21 * b02 - a20 * b04 - a23 * b00) * det;
+  out[12] = (a11 * b07 - a10 * b09 - a12 * b06) * det;
+  out[13] = (a00 * b09 - a01 * b07 + a02 * b06) * det;
+  out[14] = (a31 * b01 - a30 * b03 - a32 * b00) * det;
+  out[15] = (a20 * b03 - a21 * b01 + a22 * b00) * det;
+  return out;
+}
+/**
+ * Multiplies two mat4s
+ *
+ * @param {mat4} out the receiving matrix
+ * @param {ReadonlyMat4} a the first operand
+ * @param {ReadonlyMat4} b the second operand
+ * @returns {mat4} out
+ */
+
+function multiply(out, a, b) {
+  var a00 = a[0],
+      a01 = a[1],
+      a02 = a[2],
+      a03 = a[3];
+  var a10 = a[4],
+      a11 = a[5],
+      a12 = a[6],
+      a13 = a[7];
+  var a20 = a[8],
+      a21 = a[9],
+      a22 = a[10],
+      a23 = a[11];
+  var a30 = a[12],
+      a31 = a[13],
+      a32 = a[14],
+      a33 = a[15]; // Cache only the current line of the second matrix
+
+  var b0 = b[0],
+      b1 = b[1],
+      b2 = b[2],
+      b3 = b[3];
+  out[0] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+  out[1] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+  out[2] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+  out[3] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+  b0 = b[4];
+  b1 = b[5];
+  b2 = b[6];
+  b3 = b[7];
+  out[4] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+  out[5] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+  out[6] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+  out[7] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+  b0 = b[8];
+  b1 = b[9];
+  b2 = b[10];
+  b3 = b[11];
+  out[8] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+  out[9] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+  out[10] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+  out[11] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+  b0 = b[12];
+  b1 = b[13];
+  b2 = b[14];
+  b3 = b[15];
+  out[12] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+  out[13] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+  out[14] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+  out[15] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+  return out;
+}
+/**
+ * Scales the mat4 by the dimensions in the given vec3 not using vectorization
+ *
+ * @param {mat4} out the receiving matrix
+ * @param {ReadonlyMat4} a the matrix to scale
+ * @param {ReadonlyVec3} v the vec3 to scale the matrix by
+ * @returns {mat4} out
+ **/
+
+function scale(out, a, v) {
+  var x = v[0],
+      y = v[1],
+      z = v[2];
+  out[0] = a[0] * x;
+  out[1] = a[1] * x;
+  out[2] = a[2] * x;
+  out[3] = a[3] * x;
+  out[4] = a[4] * y;
+  out[5] = a[5] * y;
+  out[6] = a[6] * y;
+  out[7] = a[7] * y;
+  out[8] = a[8] * z;
+  out[9] = a[9] * z;
+  out[10] = a[10] * z;
+  out[11] = a[11] * z;
+  out[12] = a[12];
+  out[13] = a[13];
+  out[14] = a[14];
+  out[15] = a[15];
+  return out;
+}
+/**
+ * Creates a matrix from a vector translation
+ * This is equivalent to (but much faster than):
+ *
+ *     mat4.identity(dest);
+ *     mat4.translate(dest, dest, vec);
+ *
+ * @param {mat4} out mat4 receiving operation result
+ * @param {ReadonlyVec3} v Translation vector
+ * @returns {mat4} out
+ */
+
+function fromTranslation(out, v) {
+  out[0] = 1;
+  out[1] = 0;
+  out[2] = 0;
+  out[3] = 0;
+  out[4] = 0;
+  out[5] = 1;
+  out[6] = 0;
+  out[7] = 0;
+  out[8] = 0;
+  out[9] = 0;
+  out[10] = 1;
+  out[11] = 0;
+  out[12] = v[0];
+  out[13] = v[1];
+  out[14] = v[2];
+  out[15] = 1;
+  return out;
+}
+/**
+ * Returns the translation vector component of a transformation
+ *  matrix. If a matrix is built with fromRotationTranslation,
+ *  the returned vector will be the same as the translation vector
+ *  originally supplied.
+ * @param  {vec3} out Vector to receive translation component
+ * @param  {ReadonlyMat4} mat Matrix to be decomposed (input)
+ * @return {vec3} out
+ */
+
+function getTranslation(out, mat) {
+  out[0] = mat[12];
+  out[1] = mat[13];
+  out[2] = mat[14];
+  return out;
+}
+/**
+ * Returns the scaling factor component of a transformation
+ *  matrix. If a matrix is built with fromRotationTranslationScale
+ *  with a normalized Quaternion paramter, the returned vector will be
+ *  the same as the scaling vector
+ *  originally supplied.
+ * @param  {vec3} out Vector to receive scaling factor component
+ * @param  {ReadonlyMat4} mat Matrix to be decomposed (input)
+ * @return {vec3} out
+ */
+
+function getScaling(out, mat) {
+  var m11 = mat[0];
+  var m12 = mat[1];
+  var m13 = mat[2];
+  var m21 = mat[4];
+  var m22 = mat[5];
+  var m23 = mat[6];
+  var m31 = mat[8];
+  var m32 = mat[9];
+  var m33 = mat[10];
+  out[0] = Math.hypot(m11, m12, m13);
+  out[1] = Math.hypot(m21, m22, m23);
+  out[2] = Math.hypot(m31, m32, m33);
+  return out;
+}
+/**
+ * Returns a quaternion representing the rotational component
+ *  of a transformation matrix. If a matrix is built with
+ *  fromRotationTranslation, the returned quaternion will be the
+ *  same as the quaternion originally supplied.
+ * @param {quat} out Quaternion to receive the rotation component
+ * @param {ReadonlyMat4} mat Matrix to be decomposed (input)
+ * @return {quat} out
+ */
+
+function getRotation(out, mat) {
+  var scaling = new ARRAY_TYPE(3);
+  getScaling(scaling, mat);
+  var is1 = 1 / scaling[0];
+  var is2 = 1 / scaling[1];
+  var is3 = 1 / scaling[2];
+  var sm11 = mat[0] * is1;
+  var sm12 = mat[1] * is2;
+  var sm13 = mat[2] * is3;
+  var sm21 = mat[4] * is1;
+  var sm22 = mat[5] * is2;
+  var sm23 = mat[6] * is3;
+  var sm31 = mat[8] * is1;
+  var sm32 = mat[9] * is2;
+  var sm33 = mat[10] * is3;
+  var trace = sm11 + sm22 + sm33;
+  var S = 0;
+
+  if (trace > 0) {
+    S = Math.sqrt(trace + 1.0) * 2;
+    out[3] = 0.25 * S;
+    out[0] = (sm23 - sm32) / S;
+    out[1] = (sm31 - sm13) / S;
+    out[2] = (sm12 - sm21) / S;
+  } else if (sm11 > sm22 && sm11 > sm33) {
+    S = Math.sqrt(1.0 + sm11 - sm22 - sm33) * 2;
+    out[3] = (sm23 - sm32) / S;
+    out[0] = 0.25 * S;
+    out[1] = (sm12 + sm21) / S;
+    out[2] = (sm31 + sm13) / S;
+  } else if (sm22 > sm33) {
+    S = Math.sqrt(1.0 + sm22 - sm11 - sm33) * 2;
+    out[3] = (sm31 - sm13) / S;
+    out[0] = (sm12 + sm21) / S;
+    out[1] = 0.25 * S;
+    out[2] = (sm23 + sm32) / S;
+  } else {
+    S = Math.sqrt(1.0 + sm33 - sm11 - sm22) * 2;
+    out[3] = (sm12 - sm21) / S;
+    out[0] = (sm31 + sm13) / S;
+    out[1] = (sm23 + sm32) / S;
+    out[2] = 0.25 * S;
+  }
+
+  return out;
+}
+/**
+ * Creates a matrix from a quaternion rotation, vector translation and vector scale
+ * This is equivalent to (but much faster than):
+ *
+ *     mat4.identity(dest);
+ *     mat4.translate(dest, vec);
+ *     let quatMat = mat4.create();
+ *     quat4.toMat4(quat, quatMat);
+ *     mat4.multiply(dest, quatMat);
+ *     mat4.scale(dest, scale)
+ *
+ * @param {mat4} out mat4 receiving operation result
+ * @param {quat4} q Rotation quaternion
+ * @param {ReadonlyVec3} v Translation vector
+ * @param {ReadonlyVec3} s Scaling vector
+ * @returns {mat4} out
+ */
+
+function fromRotationTranslationScale(out, q, v, s) {
+  // Quaternion math
+  var x = q[0],
+      y = q[1],
+      z = q[2],
+      w = q[3];
+  var x2 = x + x;
+  var y2 = y + y;
+  var z2 = z + z;
+  var xx = x * x2;
+  var xy = x * y2;
+  var xz = x * z2;
+  var yy = y * y2;
+  var yz = y * z2;
+  var zz = z * z2;
+  var wx = w * x2;
+  var wy = w * y2;
+  var wz = w * z2;
+  var sx = s[0];
+  var sy = s[1];
+  var sz = s[2];
+  out[0] = (1 - (yy + zz)) * sx;
+  out[1] = (xy + wz) * sx;
+  out[2] = (xz - wy) * sx;
+  out[3] = 0;
+  out[4] = (xy - wz) * sy;
+  out[5] = (1 - (xx + zz)) * sy;
+  out[6] = (yz + wx) * sy;
+  out[7] = 0;
+  out[8] = (xz + wy) * sz;
+  out[9] = (yz - wx) * sz;
+  out[10] = (1 - (xx + yy)) * sz;
+  out[11] = 0;
+  out[12] = v[0];
+  out[13] = v[1];
+  out[14] = v[2];
+  out[15] = 1;
+  return out;
+}
+/**
+ * Calculates a 4x4 matrix from the given quaternion
+ *
+ * @param {mat4} out mat4 receiving operation result
+ * @param {ReadonlyQuat} q Quaternion to create matrix from
+ *
+ * @returns {mat4} out
+ */
+
+function fromQuat(out, q) {
+  var x = q[0],
+      y = q[1],
+      z = q[2],
+      w = q[3];
+  var x2 = x + x;
+  var y2 = y + y;
+  var z2 = z + z;
+  var xx = x * x2;
+  var yx = y * x2;
+  var yy = y * y2;
+  var zx = z * x2;
+  var zy = z * y2;
+  var zz = z * z2;
+  var wx = w * x2;
+  var wy = w * y2;
+  var wz = w * z2;
+  out[0] = 1 - yy - zz;
+  out[1] = yx + wz;
+  out[2] = zx - wy;
+  out[3] = 0;
+  out[4] = yx - wz;
+  out[5] = 1 - xx - zz;
+  out[6] = zy + wx;
+  out[7] = 0;
+  out[8] = zx + wy;
+  out[9] = zy - wx;
+  out[10] = 1 - xx - yy;
+  out[11] = 0;
+  out[12] = 0;
+  out[13] = 0;
+  out[14] = 0;
+  out[15] = 1;
+  return out;
+}
+/**
+ * Generates a perspective projection matrix with the given bounds.
+ * The near/far clip planes correspond to a normalized device coordinate Z range of [-1, 1],
+ * which matches WebGL/OpenGL's clip volume.
+ * Passing null/undefined/no value for far will generate infinite projection matrix.
+ *
+ * @param {mat4} out mat4 frustum matrix will be written into
+ * @param {number} fovy Vertical field of view in radians
+ * @param {number} aspect Aspect ratio. typically viewport width/height
+ * @param {number} near Near bound of the frustum
+ * @param {number} far Far bound of the frustum, can be null or Infinity
+ * @returns {mat4} out
+ */
+
+function perspectiveNO(out, fovy, aspect, near, far) {
+  var f = 1.0 / Math.tan(fovy / 2),
+      nf;
+  out[0] = f / aspect;
+  out[1] = 0;
+  out[2] = 0;
+  out[3] = 0;
+  out[4] = 0;
+  out[5] = f;
+  out[6] = 0;
+  out[7] = 0;
+  out[8] = 0;
+  out[9] = 0;
+  out[11] = -1;
+  out[12] = 0;
+  out[13] = 0;
+  out[15] = 0;
+
+  if (far != null && far !== Infinity) {
+    nf = 1 / (near - far);
+    out[10] = (far + near) * nf;
+    out[14] = 2 * far * near * nf;
+  } else {
+    out[10] = -1;
+    out[14] = -2 * near;
+  }
+
+  return out;
+}
+/**
+ * Alias for {@link mat4.perspectiveNO}
+ * @function
+ */
+
+var perspective = perspectiveNO;
+/**
+ * Generates a look-at matrix with the given eye position, focal point, and up axis.
+ * If you want a matrix that actually makes an object look at another object, you should use targetTo instead.
+ *
+ * @param {mat4} out mat4 frustum matrix will be written into
+ * @param {ReadonlyVec3} eye Position of the viewer
+ * @param {ReadonlyVec3} center Point the viewer is looking at
+ * @param {ReadonlyVec3} up vec3 pointing up
+ * @returns {mat4} out
+ */
+
+function lookAt(out, eye, center, up) {
+  var x0, x1, x2, y0, y1, y2, z0, z1, z2, len;
+  var eyex = eye[0];
+  var eyey = eye[1];
+  var eyez = eye[2];
+  var upx = up[0];
+  var upy = up[1];
+  var upz = up[2];
+  var centerx = center[0];
+  var centery = center[1];
+  var centerz = center[2];
+
+  if (Math.abs(eyex - centerx) < EPSILON && Math.abs(eyey - centery) < EPSILON && Math.abs(eyez - centerz) < EPSILON) {
+    return identity(out);
+  }
+
+  z0 = eyex - centerx;
+  z1 = eyey - centery;
+  z2 = eyez - centerz;
+  len = 1 / Math.hypot(z0, z1, z2);
+  z0 *= len;
+  z1 *= len;
+  z2 *= len;
+  x0 = upy * z2 - upz * z1;
+  x1 = upz * z0 - upx * z2;
+  x2 = upx * z1 - upy * z0;
+  len = Math.hypot(x0, x1, x2);
+
+  if (!len) {
+    x0 = 0;
+    x1 = 0;
+    x2 = 0;
+  } else {
+    len = 1 / len;
+    x0 *= len;
+    x1 *= len;
+    x2 *= len;
+  }
+
+  y0 = z1 * x2 - z2 * x1;
+  y1 = z2 * x0 - z0 * x2;
+  y2 = z0 * x1 - z1 * x0;
+  len = Math.hypot(y0, y1, y2);
+
+  if (!len) {
+    y0 = 0;
+    y1 = 0;
+    y2 = 0;
+  } else {
+    len = 1 / len;
+    y0 *= len;
+    y1 *= len;
+    y2 *= len;
+  }
+
+  out[0] = x0;
+  out[1] = y0;
+  out[2] = z0;
+  out[3] = 0;
+  out[4] = x1;
+  out[5] = y1;
+  out[6] = z1;
+  out[7] = 0;
+  out[8] = x2;
+  out[9] = y2;
+  out[10] = z2;
+  out[11] = 0;
+  out[12] = -(x0 * eyex + x1 * eyey + x2 * eyez);
+  out[13] = -(y0 * eyex + y1 * eyey + y2 * eyez);
+  out[14] = -(z0 * eyex + z1 * eyey + z2 * eyez);
+  out[15] = 1;
+  return out;
+}
+
+/**
+ * 3 Dimensional Vector
+ * @module vec3
+ */
+
+/**
+ * Creates a new, empty vec3
+ *
+ * @returns {vec3} a new 3D vector
+ */
+
+function create$2() {
+  var out = new ARRAY_TYPE(3);
+
+  if (ARRAY_TYPE != Float32Array) {
+    out[0] = 0;
+    out[1] = 0;
+    out[2] = 0;
+  }
+
+  return out;
+}
+/**
+ * Calculates the length of a vec3
+ *
+ * @param {ReadonlyVec3} a vector to calculate length of
+ * @returns {Number} length of a
+ */
+
+function length(a) {
+  var x = a[0];
+  var y = a[1];
+  var z = a[2];
+  return Math.hypot(x, y, z);
+}
+/**
+ * Creates a new vec3 initialized with the given values
+ *
+ * @param {Number} x X component
+ * @param {Number} y Y component
+ * @param {Number} z Z component
+ * @returns {vec3} a new 3D vector
+ */
+
+function fromValues(x, y, z) {
+  var out = new ARRAY_TYPE(3);
+  out[0] = x;
+  out[1] = y;
+  out[2] = z;
+  return out;
+}
+/**
+ * Normalize a vec3
+ *
+ * @param {vec3} out the receiving vector
+ * @param {ReadonlyVec3} a vector to normalize
+ * @returns {vec3} out
+ */
+
+function normalize$2(out, a) {
+  var x = a[0];
+  var y = a[1];
+  var z = a[2];
+  var len = x * x + y * y + z * z;
+
+  if (len > 0) {
+    //TODO: evaluate use of glm_invsqrt here?
+    len = 1 / Math.sqrt(len);
+  }
+
+  out[0] = a[0] * len;
+  out[1] = a[1] * len;
+  out[2] = a[2] * len;
+  return out;
+}
+/**
+ * Calculates the dot product of two vec3's
+ *
+ * @param {ReadonlyVec3} a the first operand
+ * @param {ReadonlyVec3} b the second operand
+ * @returns {Number} dot product of a and b
+ */
+
+function dot(a, b) {
+  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+/**
+ * Computes the cross product of two vec3's
+ *
+ * @param {vec3} out the receiving vector
+ * @param {ReadonlyVec3} a the first operand
+ * @param {ReadonlyVec3} b the second operand
+ * @returns {vec3} out
+ */
+
+function cross(out, a, b) {
+  var ax = a[0],
+      ay = a[1],
+      az = a[2];
+  var bx = b[0],
+      by = b[1],
+      bz = b[2];
+  out[0] = ay * bz - az * by;
+  out[1] = az * bx - ax * bz;
+  out[2] = ax * by - ay * bx;
+  return out;
+}
+/**
+ * Performs a linear interpolation between two vec3's
+ *
+ * @param {vec3} out the receiving vector
+ * @param {ReadonlyVec3} a the first operand
+ * @param {ReadonlyVec3} b the second operand
+ * @param {Number} t interpolation amount, in the range [0-1], between the two inputs
+ * @returns {vec3} out
+ */
+
+function lerp(out, a, b, t) {
+  var ax = a[0];
+  var ay = a[1];
+  var az = a[2];
+  out[0] = ax + t * (b[0] - ax);
+  out[1] = ay + t * (b[1] - ay);
+  out[2] = az + t * (b[2] - az);
+  return out;
+}
+/**
+ * Alias for {@link vec3.length}
+ * @function
+ */
+
+var len = length;
+/**
+ * Perform some operation over an array of vec3s.
+ *
+ * @param {Array} a the array of vectors to iterate over
+ * @param {Number} stride Number of elements between the start of each vec3. If 0 assumes tightly packed
+ * @param {Number} offset Number of elements to skip at the beginning of the array
+ * @param {Number} count Number of vec3s to iterate over. If 0 iterates over entire array
+ * @param {Function} fn Function to call for each vector in the array
+ * @param {Object} [arg] additional argument to pass to fn
+ * @returns {Array} a
+ * @function
+ */
+
+(function () {
+  var vec = create$2();
+  return function (a, stride, offset, count, fn, arg) {
+    var i, l;
+
+    if (!stride) {
+      stride = 3;
+    }
+
+    if (!offset) {
+      offset = 0;
+    }
+
+    if (count) {
+      l = Math.min(count * stride + offset, a.length);
+    } else {
+      l = a.length;
+    }
+
+    for (i = offset; i < l; i += stride) {
+      vec[0] = a[i];
+      vec[1] = a[i + 1];
+      vec[2] = a[i + 2];
+      fn(vec, vec, arg);
+      a[i] = vec[0];
+      a[i + 1] = vec[1];
+      a[i + 2] = vec[2];
+    }
+
+    return a;
+  };
+})();
+
+/**
+ * 4 Dimensional Vector
+ * @module vec4
+ */
+
+/**
+ * Creates a new, empty vec4
+ *
+ * @returns {vec4} a new 4D vector
+ */
+
+function create$1() {
+  var out = new ARRAY_TYPE(4);
+
+  if (ARRAY_TYPE != Float32Array) {
+    out[0] = 0;
+    out[1] = 0;
+    out[2] = 0;
+    out[3] = 0;
+  }
+
+  return out;
+}
+/**
+ * Normalize a vec4
+ *
+ * @param {vec4} out the receiving vector
+ * @param {ReadonlyVec4} a vector to normalize
+ * @returns {vec4} out
+ */
+
+function normalize$1(out, a) {
+  var x = a[0];
+  var y = a[1];
+  var z = a[2];
+  var w = a[3];
+  var len = x * x + y * y + z * z + w * w;
+
+  if (len > 0) {
+    len = 1 / Math.sqrt(len);
+  }
+
+  out[0] = x * len;
+  out[1] = y * len;
+  out[2] = z * len;
+  out[3] = w * len;
+  return out;
+}
+/**
+ * Perform some operation over an array of vec4s.
+ *
+ * @param {Array} a the array of vectors to iterate over
+ * @param {Number} stride Number of elements between the start of each vec4. If 0 assumes tightly packed
+ * @param {Number} offset Number of elements to skip at the beginning of the array
+ * @param {Number} count Number of vec4s to iterate over. If 0 iterates over entire array
+ * @param {Function} fn Function to call for each vector in the array
+ * @param {Object} [arg] additional argument to pass to fn
+ * @returns {Array} a
+ * @function
+ */
+
+(function () {
+  var vec = create$1();
+  return function (a, stride, offset, count, fn, arg) {
+    var i, l;
+
+    if (!stride) {
+      stride = 4;
+    }
+
+    if (!offset) {
+      offset = 0;
+    }
+
+    if (count) {
+      l = Math.min(count * stride + offset, a.length);
+    } else {
+      l = a.length;
+    }
+
+    for (i = offset; i < l; i += stride) {
+      vec[0] = a[i];
+      vec[1] = a[i + 1];
+      vec[2] = a[i + 2];
+      vec[3] = a[i + 3];
+      fn(vec, vec, arg);
+      a[i] = vec[0];
+      a[i + 1] = vec[1];
+      a[i + 2] = vec[2];
+      a[i + 3] = vec[3];
+    }
+
+    return a;
+  };
+})();
+
+/**
+ * Quaternion
+ * @module quat
+ */
+
+/**
+ * Creates a new identity quat
+ *
+ * @returns {quat} a new quaternion
+ */
+
+function create() {
+  var out = new ARRAY_TYPE(4);
+
+  if (ARRAY_TYPE != Float32Array) {
+    out[0] = 0;
+    out[1] = 0;
+    out[2] = 0;
+  }
+
+  out[3] = 1;
+  return out;
+}
+/**
+ * Sets a quat from the given angle and rotation axis,
+ * then returns it.
+ *
+ * @param {quat} out the receiving quaternion
+ * @param {ReadonlyVec3} axis the axis around which to rotate
+ * @param {Number} rad the angle in radians
+ * @returns {quat} out
+ **/
+
+function setAxisAngle(out, axis, rad) {
+  rad = rad * 0.5;
+  var s = Math.sin(rad);
+  out[0] = s * axis[0];
+  out[1] = s * axis[1];
+  out[2] = s * axis[2];
+  out[3] = Math.cos(rad);
+  return out;
+}
+/**
+ * Performs a spherical linear interpolation between two quat
+ *
+ * @param {quat} out the receiving quaternion
+ * @param {ReadonlyQuat} a the first operand
+ * @param {ReadonlyQuat} b the second operand
+ * @param {Number} t interpolation amount, in the range [0-1], between the two inputs
+ * @returns {quat} out
+ */
+
+function slerp(out, a, b, t) {
+  // benchmarks:
+  //    http://jsperf.com/quaternion-slerp-implementations
+  var ax = a[0],
+      ay = a[1],
+      az = a[2],
+      aw = a[3];
+  var bx = b[0],
+      by = b[1],
+      bz = b[2],
+      bw = b[3];
+  var omega, cosom, sinom, scale0, scale1; // calc cosine
+
+  cosom = ax * bx + ay * by + az * bz + aw * bw; // adjust signs (if necessary)
+
+  if (cosom < 0.0) {
+    cosom = -cosom;
+    bx = -bx;
+    by = -by;
+    bz = -bz;
+    bw = -bw;
+  } // calculate coefficients
+
+
+  if (1.0 - cosom > EPSILON) {
+    // standard case (slerp)
+    omega = Math.acos(cosom);
+    sinom = Math.sin(omega);
+    scale0 = Math.sin((1.0 - t) * omega) / sinom;
+    scale1 = Math.sin(t * omega) / sinom;
+  } else {
+    // "from" and "to" quaternions are very close
+    //  ... so we can do a linear interpolation
+    scale0 = 1.0 - t;
+    scale1 = t;
+  } // calculate final values
+
+
+  out[0] = scale0 * ax + scale1 * bx;
+  out[1] = scale0 * ay + scale1 * by;
+  out[2] = scale0 * az + scale1 * bz;
+  out[3] = scale0 * aw + scale1 * bw;
+  return out;
+}
+/**
+ * Creates a quaternion from the given 3x3 rotation matrix.
+ *
+ * NOTE: The resultant quaternion is not normalized, so you should be sure
+ * to renormalize the quaternion yourself where necessary.
+ *
+ * @param {quat} out the receiving quaternion
+ * @param {ReadonlyMat3} m rotation matrix
+ * @returns {quat} out
+ * @function
+ */
+
+function fromMat3(out, m) {
+  // Algorithm in Ken Shoemake's article in 1987 SIGGRAPH course notes
+  // article "Quaternion Calculus and Fast Animation".
+  var fTrace = m[0] + m[4] + m[8];
+  var fRoot;
+
+  if (fTrace > 0.0) {
+    // |w| > 1/2, may as well choose w > 1/2
+    fRoot = Math.sqrt(fTrace + 1.0); // 2w
+
+    out[3] = 0.5 * fRoot;
+    fRoot = 0.5 / fRoot; // 1/(4w)
+
+    out[0] = (m[5] - m[7]) * fRoot;
+    out[1] = (m[6] - m[2]) * fRoot;
+    out[2] = (m[1] - m[3]) * fRoot;
+  } else {
+    // |w| <= 1/2
+    var i = 0;
+    if (m[4] > m[0]) i = 1;
+    if (m[8] > m[i * 3 + i]) i = 2;
+    var j = (i + 1) % 3;
+    var k = (i + 2) % 3;
+    fRoot = Math.sqrt(m[i * 3 + i] - m[j * 3 + j] - m[k * 3 + k] + 1.0);
+    out[i] = 0.5 * fRoot;
+    fRoot = 0.5 / fRoot;
+    out[3] = (m[j * 3 + k] - m[k * 3 + j]) * fRoot;
+    out[j] = (m[j * 3 + i] + m[i * 3 + j]) * fRoot;
+    out[k] = (m[k * 3 + i] + m[i * 3 + k]) * fRoot;
+  }
+
+  return out;
+}
+/**
+ * Normalize a quat
+ *
+ * @param {quat} out the receiving quaternion
+ * @param {ReadonlyQuat} a quaternion to normalize
+ * @returns {quat} out
+ * @function
+ */
+
+var normalize = normalize$1;
+/**
+ * Sets a quaternion to represent the shortest rotation from one
+ * vector to another.
+ *
+ * Both vectors are assumed to be unit length.
+ *
+ * @param {quat} out the receiving quaternion.
+ * @param {ReadonlyVec3} a the initial vector
+ * @param {ReadonlyVec3} b the destination vector
+ * @returns {quat} out
+ */
+
+(function () {
+  var tmpvec3 = create$2();
+  var xUnitVec3 = fromValues(1, 0, 0);
+  var yUnitVec3 = fromValues(0, 1, 0);
+  return function (out, a, b) {
+    var dot$1 = dot(a, b);
+
+    if (dot$1 < -0.999999) {
+      cross(tmpvec3, xUnitVec3, a);
+      if (len(tmpvec3) < 0.000001) cross(tmpvec3, yUnitVec3, a);
+      normalize$2(tmpvec3, tmpvec3);
+      setAxisAngle(out, tmpvec3, Math.PI);
+      return out;
+    } else if (dot$1 > 0.999999) {
+      out[0] = 0;
+      out[1] = 0;
+      out[2] = 0;
+      out[3] = 1;
+      return out;
+    } else {
+      cross(tmpvec3, a, b);
+      out[0] = tmpvec3[0];
+      out[1] = tmpvec3[1];
+      out[2] = tmpvec3[2];
+      out[3] = 1 + dot$1;
+      return normalize(out, out);
+    }
+  };
+})();
+/**
+ * Performs a spherical linear interpolation with two control points
+ *
+ * @param {quat} out the receiving quaternion
+ * @param {ReadonlyQuat} a the first operand
+ * @param {ReadonlyQuat} b the second operand
+ * @param {ReadonlyQuat} c the third operand
+ * @param {ReadonlyQuat} d the fourth operand
+ * @param {Number} t interpolation amount, in the range [0-1], between the two inputs
+ * @returns {quat} out
+ */
+
+(function () {
+  var temp1 = create();
+  var temp2 = create();
+  return function (out, a, b, c, d, t) {
+    slerp(temp1, a, d, t);
+    slerp(temp2, b, c, t);
+    slerp(out, temp1, temp2, 2 * t * (1 - t));
+    return out;
+  };
+})();
+/**
+ * Sets the specified quaternion with values corresponding to the given
+ * axes. Each axis is a vec3 and is expected to be unit length and
+ * perpendicular to all other specified axes.
+ *
+ * @param {ReadonlyVec3} view  the vector representing the viewing direction
+ * @param {ReadonlyVec3} right the vector representing the local "right" direction
+ * @param {ReadonlyVec3} up    the vector representing the local "up" direction
+ * @returns {quat} out
+ */
+
+(function () {
+  var matr = create$4();
+  return function (out, view, right, up) {
+    matr[0] = right[0];
+    matr[3] = right[1];
+    matr[6] = right[2];
+    matr[1] = up[0];
+    matr[4] = up[1];
+    matr[7] = up[2];
+    matr[2] = -view[0];
+    matr[5] = -view[1];
+    matr[8] = -view[2];
+    return normalize(out, fromMat3(out, matr));
+  };
+})();
+
 class ModelLoader {
     constructor(gl, gpuResources) {
         this.loadedModels = new Map();
@@ -12379,7 +13620,10 @@ class ModelLoader {
             meshes: [],
             materials: [],
             animations: new Map(),
-            jointData: []
+            jointData: [],
+            rootNode: document.getRoot().listScenes()[0].listChildren()[0],
+            scene: document.getRoot().listScenes()[0],
+            renderableNodes: []
         };
         /*
         await Promise.all([
@@ -12389,6 +13633,7 @@ class ModelLoader {
             this.processJoints(document, modelData)
         ]);
         */
+        console.log('ModelLoader: processDocument');
         // Process each component sequentially for easier debugging
         console.log('ModelLoader: processDocument', modelData);
         await this.processMeshes(document, modelData);
@@ -12399,7 +13644,24 @@ class ModelLoader {
         console.log('ModelLoader: processAnimations', modelData);
         await this.processJoints(document, modelData);
         console.log('ModelLoader: processJoints', modelData);
+        await this.processRenderableNodes(document, modelData);
+        console.log('ModelLoader: processRenderableNodes', modelData);
         return modelData;
+    }
+    async processRenderableNodes(document, modelData) {
+        const scene = document.getRoot().listScenes()[0];
+        scene.traverse(node => {
+            const mesh = node.getMesh();
+            if (mesh) {
+                const modelMesh = this.processMesh(mesh, document);
+                console.log('ModelLoader: processRenderableNodes', node.getName(), !!node.getSkin());
+                modelData.renderableNodes.push({
+                    node,
+                    modelMesh,
+                    useSkinning: !!node.getSkin()
+                });
+            }
+        });
     }
     async processMeshes(document, modelData) {
         const meshes = document.getRoot().listMeshes();
@@ -12415,11 +13677,23 @@ class ModelLoader {
             modelData.meshes.push(modelMesh);
         }
     }
+    processMesh(mesh, document) {
+        const modelMesh = {
+            primitives: [],
+            name: mesh.getName() || ''
+        };
+        for (const primitive of mesh.listPrimitives()) {
+            const primData = this.processPrimitive(primitive, document);
+            modelMesh.primitives.push(primData);
+        }
+        return modelMesh;
+    }
     processPrimitive(primitive, document) {
         var _a, _b;
         const vao = this.gpuResources.createVertexArray();
         this.gl.bindVertexArray(vao);
         const attributes = {};
+        let hasSkin = false;
         // Get position attribute first and validate
         const positionAttribute = primitive.getAttribute('POSITION');
         if (!positionAttribute) {
@@ -12446,9 +13720,27 @@ class ModelLoader {
             const componentType = accessor.getComponentType();
             const elementSize = (_a = TYPE_TO_SIZE[accessor.getType()]) !== null && _a !== void 0 ? _a : 1;
             const normalized = accessor.getNormalized();
-            this.gl.vertexAttribPointer(location, elementSize, componentType, normalized, 0, // stride of 0 lets WebGL handle stride automatically
-            0 // no offset needed
-            );
+            console.log('ModelLoader: processPrimitive', location, semantic, componentType, elementSize, normalized);
+            if (semantic === 'JOINTS_0') {
+                hasSkin = true;
+                console.log('ModelLoader: processPrimitive', componentType, elementSize, location);
+                this.gl.vertexAttribIPointer(location, elementSize, componentType, 0, // stride of 0 lets WebGL handle stride automatically
+                0 // no offset needed
+                );
+            }
+            else {
+                this.gl.vertexAttribPointer(location, elementSize, componentType, normalized, 0, // stride of 0 lets WebGL handle stride automatically
+                0 // no offset needed
+                );
+            }
+        }
+        // Disable skinning attributes if not used
+        if (!hasSkin) {
+            console.log('ModelLoader: processPrimitive - disable skinning attributes');
+            this.gl.disableVertexAttribArray(this.getAttributeLocation('JOINTS_0'));
+            this.gl.vertexAttribI4uiv(this.getAttributeLocation('JOINTS_0'), [0, 0, 0, 0]);
+            this.gl.disableVertexAttribArray(this.getAttributeLocation('WEIGHTS_0'));
+            this.gl.vertexAttrib4fv(this.getAttributeLocation('WEIGHTS_0'), [0, 0, 0, 0]);
         }
         // Process indices
         const indices = primitive.getIndices();
@@ -12543,37 +13835,12 @@ class ModelLoader {
     processAnimations(document, modelData) {
         const animations = document.getRoot().listAnimations();
         for (const animation of animations) {
-            const clip = {
-                name: animation.getName() || '',
-                duration: this.calculateAnimationDuration(animation),
-                tracks: []
-            };
-            // Process each channel instead of sampler directly
-            for (const channel of animation.listChannels()) {
-                const sampler = channel.getSampler();
-                const targetNode = channel.getTargetNode();
-                if (!sampler || !targetNode) {
-                    throw this.createModelError(ModelErrorCode.INVALID_DATA, 'Animation channel missing sampler or target node');
-                }
-                // Add this: Get the target path (rotation, translation, or scale)
-                const targetPath = channel.getTargetPath();
-                if (targetPath !== 'translation' &&
-                    targetPath !== 'rotation' &&
-                    targetPath !== 'scale') {
-                    continue; // Skip non-skeletal animation channels
-                }
-                const jointIndex = modelData.jointData.findIndex(joint => joint.name === targetNode.getName());
-                if (jointIndex === -1)
-                    continue;
-                // Modify to include transform type
-                const track = this.processAnimationTrack(sampler, jointIndex, targetPath);
-                clip.tracks.push(track);
-            }
-            modelData.animations.set(clip.name, clip);
+            modelData.animations.set(animation.getName(), animation);
         }
     }
     processJoints(document, modelData) {
         const skins = document.getRoot().listSkins();
+        console.info('ModelLoader: processJoints:', skins.length);
         if (skins.length === 0)
             return;
         const skin = skins[0];
@@ -12593,7 +13860,7 @@ class ModelLoader {
         modelData.jointData = joints.map((joint, index) => {
             // Get the inverse bind matrix for this joint (16 floats per matrix)
             const matrixOffset = index * 16;
-            const inverseBindMatrix = new Float32Array(matrices.slice(matrixOffset, matrixOffset + 16));
+            const inverseBindMatrix = fromValues$1(matrices[matrixOffset], matrices[matrixOffset + 1], matrices[matrixOffset + 2], matrices[matrixOffset + 3], matrices[matrixOffset + 4], matrices[matrixOffset + 5], matrices[matrixOffset + 6], matrices[matrixOffset + 7], matrices[matrixOffset + 8], matrices[matrixOffset + 9], matrices[matrixOffset + 10], matrices[matrixOffset + 11], matrices[matrixOffset + 12], matrices[matrixOffset + 13], matrices[matrixOffset + 14], matrices[matrixOffset + 15]);
             // Get child indices, validating each one
             const children = joint.listChildren()
                 .map(child => joints.indexOf(child))
@@ -12602,9 +13869,11 @@ class ModelLoader {
                 index,
                 name: joint.getName() || `joint_${index}`,
                 inverseBindMatrix,
-                children
+                children,
+                node: joint
             };
         });
+        console.log('ModelLoader: processJoints', modelData.jointData);
     }
     cleanupModelResources(modelData) {
         // Should null-check resources before deletion
@@ -12701,45 +13970,6 @@ class ModelLoader {
     getIndexType(accessor) {
         var _a;
         return (_a = accessor === null || accessor === void 0 ? void 0 : accessor.getComponentType()) !== null && _a !== void 0 ? _a : this.gl.UNSIGNED_SHORT;
-    }
-    calculateAnimationDuration(animation) {
-        let maxTime = 0;
-        for (const sampler of animation.listSamplers()) {
-            const inputAccessor = sampler.getInput();
-            if (!inputAccessor) {
-                throw this.createModelError(ModelErrorCode.INVALID_DATA, 'Animation sampler missing input accessor');
-            }
-            const times = inputAccessor.getArray();
-            if (times && times.length > 0) {
-                maxTime = Math.max(maxTime, times[times.length - 1]);
-            }
-        }
-        return maxTime;
-    }
-    processAnimationTrack(sampler, jointIndex, transformType) {
-        const input = sampler.getInput();
-        const output = sampler.getOutput();
-        if (!input || !output) {
-            throw this.createModelError(ModelErrorCode.INVALID_DATA, 'Animation sampler missing input or output accessor');
-        }
-        return {
-            jointIndex,
-            times: new Float32Array(input.getArray() || []),
-            values: new Float32Array(output.getArray() || []),
-            interpolation: sampler.getInterpolation(),
-            transformType
-        };
-    }
-    getAnimation(modelId, animationName) {
-        const modelData = this.getModelData(modelId);
-        return modelData === null || modelData === void 0 ? void 0 : modelData.animations.get(animationName);
-    }
-    createGLBuffer() {
-        const buffer = this.gl.createBuffer();
-        if (!buffer) {
-            throw this.createModelError(ModelErrorCode.LOAD_FAILED, 'Failed to create WebGL buffer');
-        }
-        return buffer;
     }
     // Helper function to map semantics to attribute locations
     getAttributeLocation(semantic) {
@@ -12865,19 +14095,24 @@ class GPUResourceManager {
     }
     getDefaultShader() {
         const vertexShader = `#version 300 es
+        precision highp float;
+        precision highp int;
         layout(location = 0) in vec3 position;
         layout(location = 1) in vec3 normal;
         layout(location = 2) in vec2 uv;
-        layout(location = 3) in vec4 weights;
-        layout(location = 4) in uvec4 joints;
+        layout(location = 3) in uvec4 joints;
+        layout(location = 4) in vec4 weights;
         layout(location = 5) in vec4 tangent;
+
+        const int MAX_BONES = 64;
 
         uniform mat4 u_Model;
         uniform mat4 u_View;
         uniform mat4 u_Projection;
-        uniform mat4 u_JointMatrices[64];  // Maximum number of joints
+        uniform mat4 u_BoneMatrices[MAX_BONES];  // Maximum number of joints
         uniform mat3 u_NormalMatrix;
-
+        uniform mat4 u_NodeMatrix;
+        uniform bool u_UseSkinning;
         out vec2 v_UV;
         out vec3 v_Normal;
         out vec3 v_Position;
@@ -12885,17 +14120,46 @@ class GPUResourceManager {
 
         void main() {
             v_UV = uv;
-            vec3 N = normalize(u_NormalMatrix * normal);
-            vec3 T = normalize(u_NormalMatrix * tangent.xyz);
             // Calculate bitangent using cross product and tangent.w for handedness
-            vec3 B = normalize(cross(N, T)) * tangent.w;
+
+            // Set nPosition to the vertex position
+            vec3 nPosition = position;
+
+            highp vec4 skinVertex = vec4(0.0);
+            highp vec3 skinnedNormal = vec3(0.0);
+            highp vec3 skinnedTangent = vec3(0.0);
+
+            vec3 N;
+            vec3 T;
+
+            highp float handedness = tangent.w;
+
+            if (u_UseSkinning) {
+                for (int i = 0; i < 4; i++) {
+                    uint joint = joints[i];
+                    skinVertex += weights[i] * (u_BoneMatrices[joint] * vec4(position, 1.0));
+                    skinnedNormal += weights[i] * (mat3(u_BoneMatrices[joint]) * normal); // Apply skinning to normals
+                    skinnedTangent += weights[i] * (mat3(u_BoneMatrices[joint]) * tangent.xyz);
+                }
+                gl_Position = u_Projection * u_View * u_Model * skinVertex;
+                // gl_Position = u_Projection * u_View * u_NodeMatrix * skinVertex;
+                v_Position = (u_Model * skinVertex).xyz;
+                N = normalize(u_NormalMatrix * skinnedNormal);
+                T = normalize(u_NormalMatrix * skinnedTangent.xyz);
+            } else {
+                gl_Position = u_Projection * u_View * u_Model * u_NodeMatrix * vec4(nPosition, 1.0);
+                // gl_Position = u_Projection * u_View * u_Model * vec4(nPosition, 1.0);
+                v_Position = (u_Model * u_NodeMatrix * vec4(nPosition, 1.0)).xyz;
+                N = normalize(u_NormalMatrix * normal);
+                T = normalize(u_NormalMatrix * tangent.xyz);
+            }
+
+            vec3 B = normalize(cross(N, T)) * handedness;
             
+            v_Normal = N;
             // Create TBN matrix for transforming from tangent space to world space
             v_TBN = mat3(T, B, N);
             
-            v_Normal = N;
-            v_Position = (u_Model * vec4(position, 1.0)).xyz;
-            gl_Position = u_Projection * u_View * u_Model * vec4(position, 1.0);
         }`;
         const fragmentShader = `#version 300 es
         #extension GL_EXT_shader_texture_lod : enable
@@ -13346,1221 +14610,331 @@ class ShaderSystem {
     }
 }
 
-/**
- * Common utilities
- * @module glMatrix
- */
-// Configuration Constants
-var EPSILON = 0.000001;
-var ARRAY_TYPE = typeof Float32Array !== 'undefined' ? Float32Array : Array;
-if (!Math.hypot) Math.hypot = function () {
-  var y = 0,
-      i = arguments.length;
-
-  while (i--) {
-    y += arguments[i] * arguments[i];
-  }
-
-  return Math.sqrt(y);
-};
-
-/**
- * 3x3 Matrix
- * @module mat3
- */
-
-/**
- * Creates a new identity mat3
- *
- * @returns {mat3} a new 3x3 matrix
- */
-
-function create$4() {
-  var out = new ARRAY_TYPE(9);
-
-  if (ARRAY_TYPE != Float32Array) {
-    out[1] = 0;
-    out[2] = 0;
-    out[3] = 0;
-    out[5] = 0;
-    out[6] = 0;
-    out[7] = 0;
-  }
-
-  out[0] = 1;
-  out[4] = 1;
-  out[8] = 1;
-  return out;
-}
-/**
- * Calculates a 3x3 normal matrix (transpose inverse) from the 4x4 matrix
- *
- * @param {mat3} out mat3 receiving operation result
- * @param {ReadonlyMat4} a Mat4 to derive the normal matrix from
- *
- * @returns {mat3} out
- */
-
-function normalFromMat4(out, a) {
-  var a00 = a[0],
-      a01 = a[1],
-      a02 = a[2],
-      a03 = a[3];
-  var a10 = a[4],
-      a11 = a[5],
-      a12 = a[6],
-      a13 = a[7];
-  var a20 = a[8],
-      a21 = a[9],
-      a22 = a[10],
-      a23 = a[11];
-  var a30 = a[12],
-      a31 = a[13],
-      a32 = a[14],
-      a33 = a[15];
-  var b00 = a00 * a11 - a01 * a10;
-  var b01 = a00 * a12 - a02 * a10;
-  var b02 = a00 * a13 - a03 * a10;
-  var b03 = a01 * a12 - a02 * a11;
-  var b04 = a01 * a13 - a03 * a11;
-  var b05 = a02 * a13 - a03 * a12;
-  var b06 = a20 * a31 - a21 * a30;
-  var b07 = a20 * a32 - a22 * a30;
-  var b08 = a20 * a33 - a23 * a30;
-  var b09 = a21 * a32 - a22 * a31;
-  var b10 = a21 * a33 - a23 * a31;
-  var b11 = a22 * a33 - a23 * a32; // Calculate the determinant
-
-  var det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
-
-  if (!det) {
-    return null;
-  }
-
-  det = 1.0 / det;
-  out[0] = (a11 * b11 - a12 * b10 + a13 * b09) * det;
-  out[1] = (a12 * b08 - a10 * b11 - a13 * b07) * det;
-  out[2] = (a10 * b10 - a11 * b08 + a13 * b06) * det;
-  out[3] = (a02 * b10 - a01 * b11 - a03 * b09) * det;
-  out[4] = (a00 * b11 - a02 * b08 + a03 * b07) * det;
-  out[5] = (a01 * b08 - a00 * b10 - a03 * b06) * det;
-  out[6] = (a31 * b05 - a32 * b04 + a33 * b03) * det;
-  out[7] = (a32 * b02 - a30 * b05 - a33 * b01) * det;
-  out[8] = (a30 * b04 - a31 * b02 + a33 * b00) * det;
-  return out;
-}
-
-/**
- * 4x4 Matrix<br>Format: column-major, when typed out it looks like row-major<br>The matrices are being post multiplied.
- * @module mat4
- */
-
-/**
- * Creates a new identity mat4
- *
- * @returns {mat4} a new 4x4 matrix
- */
-
-function create$3() {
-  var out = new ARRAY_TYPE(16);
-
-  if (ARRAY_TYPE != Float32Array) {
-    out[1] = 0;
-    out[2] = 0;
-    out[3] = 0;
-    out[4] = 0;
-    out[6] = 0;
-    out[7] = 0;
-    out[8] = 0;
-    out[9] = 0;
-    out[11] = 0;
-    out[12] = 0;
-    out[13] = 0;
-    out[14] = 0;
-  }
-
-  out[0] = 1;
-  out[5] = 1;
-  out[10] = 1;
-  out[15] = 1;
-  return out;
-}
-/**
- * Set a mat4 to the identity matrix
- *
- * @param {mat4} out the receiving matrix
- * @returns {mat4} out
- */
-
-function identity(out) {
-  out[0] = 1;
-  out[1] = 0;
-  out[2] = 0;
-  out[3] = 0;
-  out[4] = 0;
-  out[5] = 1;
-  out[6] = 0;
-  out[7] = 0;
-  out[8] = 0;
-  out[9] = 0;
-  out[10] = 1;
-  out[11] = 0;
-  out[12] = 0;
-  out[13] = 0;
-  out[14] = 0;
-  out[15] = 1;
-  return out;
-}
-/**
- * Multiplies two mat4s
- *
- * @param {mat4} out the receiving matrix
- * @param {ReadonlyMat4} a the first operand
- * @param {ReadonlyMat4} b the second operand
- * @returns {mat4} out
- */
-
-function multiply(out, a, b) {
-  var a00 = a[0],
-      a01 = a[1],
-      a02 = a[2],
-      a03 = a[3];
-  var a10 = a[4],
-      a11 = a[5],
-      a12 = a[6],
-      a13 = a[7];
-  var a20 = a[8],
-      a21 = a[9],
-      a22 = a[10],
-      a23 = a[11];
-  var a30 = a[12],
-      a31 = a[13],
-      a32 = a[14],
-      a33 = a[15]; // Cache only the current line of the second matrix
-
-  var b0 = b[0],
-      b1 = b[1],
-      b2 = b[2],
-      b3 = b[3];
-  out[0] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-  out[1] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-  out[2] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-  out[3] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-  b0 = b[4];
-  b1 = b[5];
-  b2 = b[6];
-  b3 = b[7];
-  out[4] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-  out[5] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-  out[6] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-  out[7] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-  b0 = b[8];
-  b1 = b[9];
-  b2 = b[10];
-  b3 = b[11];
-  out[8] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-  out[9] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-  out[10] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-  out[11] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-  b0 = b[12];
-  b1 = b[13];
-  b2 = b[14];
-  b3 = b[15];
-  out[12] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
-  out[13] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
-  out[14] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
-  out[15] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
-  return out;
-}
-/**
- * Translate a mat4 by the given vector
- *
- * @param {mat4} out the receiving matrix
- * @param {ReadonlyMat4} a the matrix to translate
- * @param {ReadonlyVec3} v vector to translate by
- * @returns {mat4} out
- */
-
-function translate(out, a, v) {
-  var x = v[0],
-      y = v[1],
-      z = v[2];
-  var a00, a01, a02, a03;
-  var a10, a11, a12, a13;
-  var a20, a21, a22, a23;
-
-  if (a === out) {
-    out[12] = a[0] * x + a[4] * y + a[8] * z + a[12];
-    out[13] = a[1] * x + a[5] * y + a[9] * z + a[13];
-    out[14] = a[2] * x + a[6] * y + a[10] * z + a[14];
-    out[15] = a[3] * x + a[7] * y + a[11] * z + a[15];
-  } else {
-    a00 = a[0];
-    a01 = a[1];
-    a02 = a[2];
-    a03 = a[3];
-    a10 = a[4];
-    a11 = a[5];
-    a12 = a[6];
-    a13 = a[7];
-    a20 = a[8];
-    a21 = a[9];
-    a22 = a[10];
-    a23 = a[11];
-    out[0] = a00;
-    out[1] = a01;
-    out[2] = a02;
-    out[3] = a03;
-    out[4] = a10;
-    out[5] = a11;
-    out[6] = a12;
-    out[7] = a13;
-    out[8] = a20;
-    out[9] = a21;
-    out[10] = a22;
-    out[11] = a23;
-    out[12] = a00 * x + a10 * y + a20 * z + a[12];
-    out[13] = a01 * x + a11 * y + a21 * z + a[13];
-    out[14] = a02 * x + a12 * y + a22 * z + a[14];
-    out[15] = a03 * x + a13 * y + a23 * z + a[15];
-  }
-
-  return out;
-}
-/**
- * Scales the mat4 by the dimensions in the given vec3 not using vectorization
- *
- * @param {mat4} out the receiving matrix
- * @param {ReadonlyMat4} a the matrix to scale
- * @param {ReadonlyVec3} v the vec3 to scale the matrix by
- * @returns {mat4} out
- **/
-
-function scale(out, a, v) {
-  var x = v[0],
-      y = v[1],
-      z = v[2];
-  out[0] = a[0] * x;
-  out[1] = a[1] * x;
-  out[2] = a[2] * x;
-  out[3] = a[3] * x;
-  out[4] = a[4] * y;
-  out[5] = a[5] * y;
-  out[6] = a[6] * y;
-  out[7] = a[7] * y;
-  out[8] = a[8] * z;
-  out[9] = a[9] * z;
-  out[10] = a[10] * z;
-  out[11] = a[11] * z;
-  out[12] = a[12];
-  out[13] = a[13];
-  out[14] = a[14];
-  out[15] = a[15];
-  return out;
-}
-/**
- * Creates a matrix from a vector translation
- * This is equivalent to (but much faster than):
- *
- *     mat4.identity(dest);
- *     mat4.translate(dest, dest, vec);
- *
- * @param {mat4} out mat4 receiving operation result
- * @param {ReadonlyVec3} v Translation vector
- * @returns {mat4} out
- */
-
-function fromTranslation(out, v) {
-  out[0] = 1;
-  out[1] = 0;
-  out[2] = 0;
-  out[3] = 0;
-  out[4] = 0;
-  out[5] = 1;
-  out[6] = 0;
-  out[7] = 0;
-  out[8] = 0;
-  out[9] = 0;
-  out[10] = 1;
-  out[11] = 0;
-  out[12] = v[0];
-  out[13] = v[1];
-  out[14] = v[2];
-  out[15] = 1;
-  return out;
-}
-/**
- * Calculates a 4x4 matrix from the given quaternion
- *
- * @param {mat4} out mat4 receiving operation result
- * @param {ReadonlyQuat} q Quaternion to create matrix from
- *
- * @returns {mat4} out
- */
-
-function fromQuat(out, q) {
-  var x = q[0],
-      y = q[1],
-      z = q[2],
-      w = q[3];
-  var x2 = x + x;
-  var y2 = y + y;
-  var z2 = z + z;
-  var xx = x * x2;
-  var yx = y * x2;
-  var yy = y * y2;
-  var zx = z * x2;
-  var zy = z * y2;
-  var zz = z * z2;
-  var wx = w * x2;
-  var wy = w * y2;
-  var wz = w * z2;
-  out[0] = 1 - yy - zz;
-  out[1] = yx + wz;
-  out[2] = zx - wy;
-  out[3] = 0;
-  out[4] = yx - wz;
-  out[5] = 1 - xx - zz;
-  out[6] = zy + wx;
-  out[7] = 0;
-  out[8] = zx + wy;
-  out[9] = zy - wx;
-  out[10] = 1 - xx - yy;
-  out[11] = 0;
-  out[12] = 0;
-  out[13] = 0;
-  out[14] = 0;
-  out[15] = 1;
-  return out;
-}
-/**
- * Generates a perspective projection matrix with the given bounds.
- * The near/far clip planes correspond to a normalized device coordinate Z range of [-1, 1],
- * which matches WebGL/OpenGL's clip volume.
- * Passing null/undefined/no value for far will generate infinite projection matrix.
- *
- * @param {mat4} out mat4 frustum matrix will be written into
- * @param {number} fovy Vertical field of view in radians
- * @param {number} aspect Aspect ratio. typically viewport width/height
- * @param {number} near Near bound of the frustum
- * @param {number} far Far bound of the frustum, can be null or Infinity
- * @returns {mat4} out
- */
-
-function perspectiveNO(out, fovy, aspect, near, far) {
-  var f = 1.0 / Math.tan(fovy / 2),
-      nf;
-  out[0] = f / aspect;
-  out[1] = 0;
-  out[2] = 0;
-  out[3] = 0;
-  out[4] = 0;
-  out[5] = f;
-  out[6] = 0;
-  out[7] = 0;
-  out[8] = 0;
-  out[9] = 0;
-  out[11] = -1;
-  out[12] = 0;
-  out[13] = 0;
-  out[15] = 0;
-
-  if (far != null && far !== Infinity) {
-    nf = 1 / (near - far);
-    out[10] = (far + near) * nf;
-    out[14] = 2 * far * near * nf;
-  } else {
-    out[10] = -1;
-    out[14] = -2 * near;
-  }
-
-  return out;
-}
-/**
- * Alias for {@link mat4.perspectiveNO}
- * @function
- */
-
-var perspective = perspectiveNO;
-/**
- * Generates a look-at matrix with the given eye position, focal point, and up axis.
- * If you want a matrix that actually makes an object look at another object, you should use targetTo instead.
- *
- * @param {mat4} out mat4 frustum matrix will be written into
- * @param {ReadonlyVec3} eye Position of the viewer
- * @param {ReadonlyVec3} center Point the viewer is looking at
- * @param {ReadonlyVec3} up vec3 pointing up
- * @returns {mat4} out
- */
-
-function lookAt(out, eye, center, up) {
-  var x0, x1, x2, y0, y1, y2, z0, z1, z2, len;
-  var eyex = eye[0];
-  var eyey = eye[1];
-  var eyez = eye[2];
-  var upx = up[0];
-  var upy = up[1];
-  var upz = up[2];
-  var centerx = center[0];
-  var centery = center[1];
-  var centerz = center[2];
-
-  if (Math.abs(eyex - centerx) < EPSILON && Math.abs(eyey - centery) < EPSILON && Math.abs(eyez - centerz) < EPSILON) {
-    return identity(out);
-  }
-
-  z0 = eyex - centerx;
-  z1 = eyey - centery;
-  z2 = eyez - centerz;
-  len = 1 / Math.hypot(z0, z1, z2);
-  z0 *= len;
-  z1 *= len;
-  z2 *= len;
-  x0 = upy * z2 - upz * z1;
-  x1 = upz * z0 - upx * z2;
-  x2 = upx * z1 - upy * z0;
-  len = Math.hypot(x0, x1, x2);
-
-  if (!len) {
-    x0 = 0;
-    x1 = 0;
-    x2 = 0;
-  } else {
-    len = 1 / len;
-    x0 *= len;
-    x1 *= len;
-    x2 *= len;
-  }
-
-  y0 = z1 * x2 - z2 * x1;
-  y1 = z2 * x0 - z0 * x2;
-  y2 = z0 * x1 - z1 * x0;
-  len = Math.hypot(y0, y1, y2);
-
-  if (!len) {
-    y0 = 0;
-    y1 = 0;
-    y2 = 0;
-  } else {
-    len = 1 / len;
-    y0 *= len;
-    y1 *= len;
-    y2 *= len;
-  }
-
-  out[0] = x0;
-  out[1] = y0;
-  out[2] = z0;
-  out[3] = 0;
-  out[4] = x1;
-  out[5] = y1;
-  out[6] = z1;
-  out[7] = 0;
-  out[8] = x2;
-  out[9] = y2;
-  out[10] = z2;
-  out[11] = 0;
-  out[12] = -(x0 * eyex + x1 * eyey + x2 * eyez);
-  out[13] = -(y0 * eyex + y1 * eyey + y2 * eyez);
-  out[14] = -(z0 * eyex + z1 * eyey + z2 * eyez);
-  out[15] = 1;
-  return out;
-}
-
-/**
- * 3 Dimensional Vector
- * @module vec3
- */
-
-/**
- * Creates a new, empty vec3
- *
- * @returns {vec3} a new 3D vector
- */
-
-function create$2() {
-  var out = new ARRAY_TYPE(3);
-
-  if (ARRAY_TYPE != Float32Array) {
-    out[0] = 0;
-    out[1] = 0;
-    out[2] = 0;
-  }
-
-  return out;
-}
-/**
- * Calculates the length of a vec3
- *
- * @param {ReadonlyVec3} a vector to calculate length of
- * @returns {Number} length of a
- */
-
-function length(a) {
-  var x = a[0];
-  var y = a[1];
-  var z = a[2];
-  return Math.hypot(x, y, z);
-}
-/**
- * Creates a new vec3 initialized with the given values
- *
- * @param {Number} x X component
- * @param {Number} y Y component
- * @param {Number} z Z component
- * @returns {vec3} a new 3D vector
- */
-
-function fromValues(x, y, z) {
-  var out = new ARRAY_TYPE(3);
-  out[0] = x;
-  out[1] = y;
-  out[2] = z;
-  return out;
-}
-/**
- * Normalize a vec3
- *
- * @param {vec3} out the receiving vector
- * @param {ReadonlyVec3} a vector to normalize
- * @returns {vec3} out
- */
-
-function normalize$2(out, a) {
-  var x = a[0];
-  var y = a[1];
-  var z = a[2];
-  var len = x * x + y * y + z * z;
-
-  if (len > 0) {
-    //TODO: evaluate use of glm_invsqrt here?
-    len = 1 / Math.sqrt(len);
-  }
-
-  out[0] = a[0] * len;
-  out[1] = a[1] * len;
-  out[2] = a[2] * len;
-  return out;
-}
-/**
- * Calculates the dot product of two vec3's
- *
- * @param {ReadonlyVec3} a the first operand
- * @param {ReadonlyVec3} b the second operand
- * @returns {Number} dot product of a and b
- */
-
-function dot(a, b) {
-  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-}
-/**
- * Computes the cross product of two vec3's
- *
- * @param {vec3} out the receiving vector
- * @param {ReadonlyVec3} a the first operand
- * @param {ReadonlyVec3} b the second operand
- * @returns {vec3} out
- */
-
-function cross(out, a, b) {
-  var ax = a[0],
-      ay = a[1],
-      az = a[2];
-  var bx = b[0],
-      by = b[1],
-      bz = b[2];
-  out[0] = ay * bz - az * by;
-  out[1] = az * bx - ax * bz;
-  out[2] = ax * by - ay * bx;
-  return out;
-}
-/**
- * Alias for {@link vec3.length}
- * @function
- */
-
-var len = length;
-/**
- * Perform some operation over an array of vec3s.
- *
- * @param {Array} a the array of vectors to iterate over
- * @param {Number} stride Number of elements between the start of each vec3. If 0 assumes tightly packed
- * @param {Number} offset Number of elements to skip at the beginning of the array
- * @param {Number} count Number of vec3s to iterate over. If 0 iterates over entire array
- * @param {Function} fn Function to call for each vector in the array
- * @param {Object} [arg] additional argument to pass to fn
- * @returns {Array} a
- * @function
- */
-
-(function () {
-  var vec = create$2();
-  return function (a, stride, offset, count, fn, arg) {
-    var i, l;
-
-    if (!stride) {
-      stride = 3;
-    }
-
-    if (!offset) {
-      offset = 0;
-    }
-
-    if (count) {
-      l = Math.min(count * stride + offset, a.length);
-    } else {
-      l = a.length;
-    }
-
-    for (i = offset; i < l; i += stride) {
-      vec[0] = a[i];
-      vec[1] = a[i + 1];
-      vec[2] = a[i + 2];
-      fn(vec, vec, arg);
-      a[i] = vec[0];
-      a[i + 1] = vec[1];
-      a[i + 2] = vec[2];
-    }
-
-    return a;
-  };
-})();
-
-/**
- * 4 Dimensional Vector
- * @module vec4
- */
-
-/**
- * Creates a new, empty vec4
- *
- * @returns {vec4} a new 4D vector
- */
-
-function create$1() {
-  var out = new ARRAY_TYPE(4);
-
-  if (ARRAY_TYPE != Float32Array) {
-    out[0] = 0;
-    out[1] = 0;
-    out[2] = 0;
-    out[3] = 0;
-  }
-
-  return out;
-}
-/**
- * Normalize a vec4
- *
- * @param {vec4} out the receiving vector
- * @param {ReadonlyVec4} a vector to normalize
- * @returns {vec4} out
- */
-
-function normalize$1(out, a) {
-  var x = a[0];
-  var y = a[1];
-  var z = a[2];
-  var w = a[3];
-  var len = x * x + y * y + z * z + w * w;
-
-  if (len > 0) {
-    len = 1 / Math.sqrt(len);
-  }
-
-  out[0] = x * len;
-  out[1] = y * len;
-  out[2] = z * len;
-  out[3] = w * len;
-  return out;
-}
-/**
- * Perform some operation over an array of vec4s.
- *
- * @param {Array} a the array of vectors to iterate over
- * @param {Number} stride Number of elements between the start of each vec4. If 0 assumes tightly packed
- * @param {Number} offset Number of elements to skip at the beginning of the array
- * @param {Number} count Number of vec4s to iterate over. If 0 iterates over entire array
- * @param {Function} fn Function to call for each vector in the array
- * @param {Object} [arg] additional argument to pass to fn
- * @returns {Array} a
- * @function
- */
-
-(function () {
-  var vec = create$1();
-  return function (a, stride, offset, count, fn, arg) {
-    var i, l;
-
-    if (!stride) {
-      stride = 4;
-    }
-
-    if (!offset) {
-      offset = 0;
-    }
-
-    if (count) {
-      l = Math.min(count * stride + offset, a.length);
-    } else {
-      l = a.length;
-    }
-
-    for (i = offset; i < l; i += stride) {
-      vec[0] = a[i];
-      vec[1] = a[i + 1];
-      vec[2] = a[i + 2];
-      vec[3] = a[i + 3];
-      fn(vec, vec, arg);
-      a[i] = vec[0];
-      a[i + 1] = vec[1];
-      a[i + 2] = vec[2];
-      a[i + 3] = vec[3];
-    }
-
-    return a;
-  };
-})();
-
-/**
- * Quaternion
- * @module quat
- */
-
-/**
- * Creates a new identity quat
- *
- * @returns {quat} a new quaternion
- */
-
-function create() {
-  var out = new ARRAY_TYPE(4);
-
-  if (ARRAY_TYPE != Float32Array) {
-    out[0] = 0;
-    out[1] = 0;
-    out[2] = 0;
-  }
-
-  out[3] = 1;
-  return out;
-}
-/**
- * Sets a quat from the given angle and rotation axis,
- * then returns it.
- *
- * @param {quat} out the receiving quaternion
- * @param {ReadonlyVec3} axis the axis around which to rotate
- * @param {Number} rad the angle in radians
- * @returns {quat} out
- **/
-
-function setAxisAngle(out, axis, rad) {
-  rad = rad * 0.5;
-  var s = Math.sin(rad);
-  out[0] = s * axis[0];
-  out[1] = s * axis[1];
-  out[2] = s * axis[2];
-  out[3] = Math.cos(rad);
-  return out;
-}
-/**
- * Performs a spherical linear interpolation between two quat
- *
- * @param {quat} out the receiving quaternion
- * @param {ReadonlyQuat} a the first operand
- * @param {ReadonlyQuat} b the second operand
- * @param {Number} t interpolation amount, in the range [0-1], between the two inputs
- * @returns {quat} out
- */
-
-function slerp(out, a, b, t) {
-  // benchmarks:
-  //    http://jsperf.com/quaternion-slerp-implementations
-  var ax = a[0],
-      ay = a[1],
-      az = a[2],
-      aw = a[3];
-  var bx = b[0],
-      by = b[1],
-      bz = b[2],
-      bw = b[3];
-  var omega, cosom, sinom, scale0, scale1; // calc cosine
-
-  cosom = ax * bx + ay * by + az * bz + aw * bw; // adjust signs (if necessary)
-
-  if (cosom < 0.0) {
-    cosom = -cosom;
-    bx = -bx;
-    by = -by;
-    bz = -bz;
-    bw = -bw;
-  } // calculate coefficients
-
-
-  if (1.0 - cosom > EPSILON) {
-    // standard case (slerp)
-    omega = Math.acos(cosom);
-    sinom = Math.sin(omega);
-    scale0 = Math.sin((1.0 - t) * omega) / sinom;
-    scale1 = Math.sin(t * omega) / sinom;
-  } else {
-    // "from" and "to" quaternions are very close
-    //  ... so we can do a linear interpolation
-    scale0 = 1.0 - t;
-    scale1 = t;
-  } // calculate final values
-
-
-  out[0] = scale0 * ax + scale1 * bx;
-  out[1] = scale0 * ay + scale1 * by;
-  out[2] = scale0 * az + scale1 * bz;
-  out[3] = scale0 * aw + scale1 * bw;
-  return out;
-}
-/**
- * Creates a quaternion from the given 3x3 rotation matrix.
- *
- * NOTE: The resultant quaternion is not normalized, so you should be sure
- * to renormalize the quaternion yourself where necessary.
- *
- * @param {quat} out the receiving quaternion
- * @param {ReadonlyMat3} m rotation matrix
- * @returns {quat} out
- * @function
- */
-
-function fromMat3(out, m) {
-  // Algorithm in Ken Shoemake's article in 1987 SIGGRAPH course notes
-  // article "Quaternion Calculus and Fast Animation".
-  var fTrace = m[0] + m[4] + m[8];
-  var fRoot;
-
-  if (fTrace > 0.0) {
-    // |w| > 1/2, may as well choose w > 1/2
-    fRoot = Math.sqrt(fTrace + 1.0); // 2w
-
-    out[3] = 0.5 * fRoot;
-    fRoot = 0.5 / fRoot; // 1/(4w)
-
-    out[0] = (m[5] - m[7]) * fRoot;
-    out[1] = (m[6] - m[2]) * fRoot;
-    out[2] = (m[1] - m[3]) * fRoot;
-  } else {
-    // |w| <= 1/2
-    var i = 0;
-    if (m[4] > m[0]) i = 1;
-    if (m[8] > m[i * 3 + i]) i = 2;
-    var j = (i + 1) % 3;
-    var k = (i + 2) % 3;
-    fRoot = Math.sqrt(m[i * 3 + i] - m[j * 3 + j] - m[k * 3 + k] + 1.0);
-    out[i] = 0.5 * fRoot;
-    fRoot = 0.5 / fRoot;
-    out[3] = (m[j * 3 + k] - m[k * 3 + j]) * fRoot;
-    out[j] = (m[j * 3 + i] + m[i * 3 + j]) * fRoot;
-    out[k] = (m[k * 3 + i] + m[i * 3 + k]) * fRoot;
-  }
-
-  return out;
-}
-/**
- * Creates a quaternion from the given euler angle x, y, z.
- *
- * @param {quat} out the receiving quaternion
- * @param {x} Angle to rotate around X axis in degrees.
- * @param {y} Angle to rotate around Y axis in degrees.
- * @param {z} Angle to rotate around Z axis in degrees.
- * @returns {quat} out
- * @function
- */
-
-function fromEuler(out, x, y, z) {
-  var halfToRad = 0.5 * Math.PI / 180.0;
-  x *= halfToRad;
-  y *= halfToRad;
-  z *= halfToRad;
-  var sx = Math.sin(x);
-  var cx = Math.cos(x);
-  var sy = Math.sin(y);
-  var cy = Math.cos(y);
-  var sz = Math.sin(z);
-  var cz = Math.cos(z);
-  out[0] = sx * cy * cz - cx * sy * sz;
-  out[1] = cx * sy * cz + sx * cy * sz;
-  out[2] = cx * cy * sz - sx * sy * cz;
-  out[3] = cx * cy * cz + sx * sy * sz;
-  return out;
-}
-/**
- * Normalize a quat
- *
- * @param {quat} out the receiving quaternion
- * @param {ReadonlyQuat} a quaternion to normalize
- * @returns {quat} out
- * @function
- */
-
-var normalize = normalize$1;
-/**
- * Sets a quaternion to represent the shortest rotation from one
- * vector to another.
- *
- * Both vectors are assumed to be unit length.
- *
- * @param {quat} out the receiving quaternion.
- * @param {ReadonlyVec3} a the initial vector
- * @param {ReadonlyVec3} b the destination vector
- * @returns {quat} out
- */
-
-(function () {
-  var tmpvec3 = create$2();
-  var xUnitVec3 = fromValues(1, 0, 0);
-  var yUnitVec3 = fromValues(0, 1, 0);
-  return function (out, a, b) {
-    var dot$1 = dot(a, b);
-
-    if (dot$1 < -0.999999) {
-      cross(tmpvec3, xUnitVec3, a);
-      if (len(tmpvec3) < 0.000001) cross(tmpvec3, yUnitVec3, a);
-      normalize$2(tmpvec3, tmpvec3);
-      setAxisAngle(out, tmpvec3, Math.PI);
-      return out;
-    } else if (dot$1 > 0.999999) {
-      out[0] = 0;
-      out[1] = 0;
-      out[2] = 0;
-      out[3] = 1;
-      return out;
-    } else {
-      cross(tmpvec3, a, b);
-      out[0] = tmpvec3[0];
-      out[1] = tmpvec3[1];
-      out[2] = tmpvec3[2];
-      out[3] = 1 + dot$1;
-      return normalize(out, out);
-    }
-  };
-})();
-/**
- * Performs a spherical linear interpolation with two control points
- *
- * @param {quat} out the receiving quaternion
- * @param {ReadonlyQuat} a the first operand
- * @param {ReadonlyQuat} b the second operand
- * @param {ReadonlyQuat} c the third operand
- * @param {ReadonlyQuat} d the fourth operand
- * @param {Number} t interpolation amount, in the range [0-1], between the two inputs
- * @returns {quat} out
- */
-
-(function () {
-  var temp1 = create();
-  var temp2 = create();
-  return function (out, a, b, c, d, t) {
-    slerp(temp1, a, d, t);
-    slerp(temp2, b, c, t);
-    slerp(out, temp1, temp2, 2 * t * (1 - t));
-    return out;
-  };
-})();
-/**
- * Sets the specified quaternion with values corresponding to the given
- * axes. Each axis is a vec3 and is expected to be unit length and
- * perpendicular to all other specified axes.
- *
- * @param {ReadonlyVec3} view  the vector representing the viewing direction
- * @param {ReadonlyVec3} right the vector representing the local "right" direction
- * @param {ReadonlyVec3} up    the vector representing the local "up" direction
- * @returns {quat} out
- */
-
-(function () {
-  var matr = create$4();
-  return function (out, view, right, up) {
-    matr[0] = right[0];
-    matr[3] = right[1];
-    matr[6] = right[2];
-    matr[1] = up[0];
-    matr[4] = up[1];
-    matr[7] = up[2];
-    matr[2] = -view[0];
-    matr[5] = -view[1];
-    matr[8] = -view[2];
-    return normalize(out, fromMat3(out, matr));
-  };
-})();
-
 class Model {
     constructor(instanceId, manager) {
         this.instanceId = instanceId;
-        this.manager = manager;
+        this._manager = manager;
     }
     setNormalMapEnabled(enabled) {
-        this.manager.setModelNormalMapEnabled(enabled, this);
+        this._manager.setModelNormalMapEnabled(enabled, this);
     }
     setPosition(x, y, z) {
-        this.manager.setModelPosition(x, y, z, this);
+        this._manager.setModelPosition(x, y, z, this);
     }
     setRotation(quaternion) {
-        this.manager.setModelRotation(quaternion, this);
+        this._manager.setModelRotation(quaternion, this);
     }
     setScale(x, y, z) {
-        this.manager.setModelScale(x, y, z, this);
+        this._manager.setModelScale(x, y, z, this);
     }
     playAnimation(animationName, options) {
-        this.manager.playModelAnimation(animationName, this, options);
+        this._manager.playModelAnimation(animationName, this, options);
+    }
+    updateAnimation(deltaTime) {
+        this._manager.updateModelAnimation(this, deltaTime);
     }
     stopAnimation() {
-        this.manager.stopModelAnimation(this);
+        this._manager.stopModelAnimation(this);
     }
     // Additional convenience methods
     setQuaternion(x, y, z, w) {
         const quat = new Float32Array([x, y, z, w]);
-        this.manager.setModelRotation(quat, this);
+        this._manager.setModelRotation(quat, this);
     }
-    // Helper for converting Euler angles to quaternion
-    eulerToQuaternion(x, y, z) {
-        // Create quaternion from Euler angles (XYZ order)
-        const quaternion = create();
-        fromEuler(quaternion, x, y, z);
-        return quaternion;
+    get manager() {
+        return this._manager;
     }
 }
 
 class AnimationController {
     constructor(modelLoader) {
         this.modelLoader = modelLoader;
+        this.modelLoader = modelLoader;
+    }
+    updateNodeLocalTransforms(instance) {
+        const modelData = this.modelLoader.getModelData(instance.instanceId.modelId);
+        if (!modelData)
+            return;
+        const nodeTransforms = instance.animationState.animationNodeTransforms;
+        const scene = modelData.scene;
+        scene.traverse(node => {
+            const nodeMatrix = node.getMatrix();
+            let translation;
+            let rotation;
+            let scale;
+            if (nodeMatrix) {
+                translation = create$2();
+                rotation = create();
+                scale = create$2();
+                getTranslation(translation, nodeMatrix);
+                getRotation(rotation, nodeMatrix);
+                getScaling(scale, nodeMatrix);
+            }
+            else {
+                translation = node.getTranslation() || create$2();
+                rotation = node.getRotation() || create();
+                scale = node.getScale() || create$2();
+            }
+            nodeTransforms.set(node, { translation, rotation, scale });
+        });
     }
     updateAnimation(instance, deltaTime) {
-        if (!instance.animationState.currentAnimation)
+        var _a;
+        const animationState = instance.animationState;
+        const currentAnimation = animationState.currentAnimation;
+        const playing = animationState.playing;
+        // const currentTime = animationState.currentTime;
+        // const speed = animationState.speed;
+        // const loop = animationState.loop;
+        if (!playing)
             return;
-        // Update time
-        const newTime = this.updateAnimationTime(instance.animationState, deltaTime, instance.instanceId.modelId);
-        // Get animation data
-        const animation = this.modelLoader.getAnimation(instance.instanceId.modelId, instance.animationState.currentAnimation);
+        if (currentAnimation === null)
+            return;
+        const modelData = this.modelLoader.getModelData(instance.instanceId.modelId);
+        const animations = modelData === null || modelData === void 0 ? void 0 : modelData.animations;
+        if (!animations)
+            return;
+        const animation = animations.get(currentAnimation);
         if (!animation) {
             this.stopAnimation(instance);
             return;
         }
-        // Update instance state
-        instance.animationState.currentTime = newTime;
-        // Update joint matrices
-        this.updateJointMatrices(instance, animation);
-    }
-    startAnimation(instance, animationName, options) {
-        var _a, _b;
-        instance.animationState = {
-            currentAnimation: animationName,
-            currentTime: 0,
-            speed: (_a = options === null || options === void 0 ? void 0 : options.speed) !== null && _a !== void 0 ? _a : 1,
-            loop: (_b = options === null || options === void 0 ? void 0 : options.loop) !== null && _b !== void 0 ? _b : true,
-            blendFactor: (options === null || options === void 0 ? void 0 : options.blendDuration) ? 0 : undefined
-        };
-    }
-    stopAnimation(instance) {
-        instance.animationState.currentAnimation = null;
-        instance.animationState.currentTime = 0;
-        instance.animationState.blendFactor = undefined;
-    }
-    updateAnimationTime(state, deltaTime, modelId) {
-        const newTime = state.currentTime + (deltaTime * state.speed);
-        const animation = this.modelLoader.getAnimation(modelId, state.currentAnimation);
-        if (!animation)
-            return 0;
-        // Handle looping
-        if (state.loop) {
-            return newTime % animation.duration;
+        // Find maximum duration across all channels
+        const maxDuration = this.maxDuration(animation);
+        // Update animation time
+        instance.animationState.currentTime = this.updateTime(instance.animationState, deltaTime, maxDuration);
+        // TODO: This can be optimized by creating a version of this at the model level and copying it to the instance
+        this.updateNodeLocalTransforms(instance);
+        // Update node transforms from animation
+        this.updateNodeAnimationTransforms(instance, animation);
+        // Update node hierarchy transforms
+        this.updateNodeHierarchyTransforms(instance);
+        // Update bone matrices if skinning
+        if (((_a = modelData === null || modelData === void 0 ? void 0 : modelData.jointData) === null || _a === void 0 ? void 0 : _a.length) > 0) {
+            this.updateNodeSkinningMatrices(instance);
         }
-        // Handle non-looping animations
-        return Math.min(newTime, animation.duration);
     }
-    updateJointMatrices(instance, animation) {
-        // Group transforms by joint
-        const jointTransforms = new Map();
-        // Collect transforms for each joint
-        for (const track of animation.tracks) {
-            let transforms = jointTransforms.get(track.jointIndex);
-            if (!transforms) {
-                transforms = {};
-                jointTransforms.set(track.jointIndex, transforms);
-            }
-            const values = this.evaluateTrack(track, instance.animationState.currentTime);
-            transforms[track.transformType] = values;
-        }
-        // Get model data for inverse bind matrices
+    updateNodeHierarchyTransforms(instance) {
         const modelData = this.modelLoader.getModelData(instance.instanceId.modelId);
         if (!modelData)
             return;
-        // Compose final matrices
-        const tempMat = create$3();
-        const finalMat = create$3();
-        for (const [jointIndex, transforms] of jointTransforms) {
-            identity(tempMat);
-            // Apply scale if present
-            if (transforms.scale) {
-                scale(tempMat, tempMat, transforms.scale);
-            }
-            // Apply rotation if present
-            if (transforms.rotation) {
-                const rotMat = create$3();
-                fromQuat(rotMat, transforms.rotation);
-                multiply(tempMat, tempMat, rotMat);
-            }
-            // Apply translation if present
-            if (transforms.translation) {
-                translate(tempMat, tempMat, transforms.translation);
-            }
-            // Apply inverse bind matrix
-            const jointData = modelData.jointData[jointIndex];
-            if (jointData) {
-                multiply(finalMat, tempMat, jointData.inverseBindMatrix);
-                instance.jointMatrices.set(finalMat, jointIndex * 16);
+        const scene = modelData.scene;
+        scene.traverse(node => {
+            var _a, _b, _c;
+            let parentMatrix;
+            // Get parent node
+            const parent = node.getParentNode();
+            if (parent !== null) {
+                parentMatrix = instance.animationState.animationMatrices.get(parent);
+                if (!parentMatrix) {
+                    console.warn(`Parent animation matrix not found for node ${node.getName()}`);
+                    parentMatrix = create$3();
+                }
             }
             else {
-                instance.jointMatrices.set(tempMat, jointIndex * 16);
+                parentMatrix = create$3();
+            }
+            const nodeTransforms = instance.animationState.animationNodeTransforms.get(node);
+            let animationMatrix = create$3();
+            if (nodeTransforms) {
+                const rotation = (_a = nodeTransforms.rotation) !== null && _a !== void 0 ? _a : create();
+                const translation = (_b = nodeTransforms.translation) !== null && _b !== void 0 ? _b : create$2();
+                const scale = (_c = nodeTransforms.scale) !== null && _c !== void 0 ? _c : create$2();
+                fromRotationTranslationScale(animationMatrix, rotation, translation, scale);
+            }
+            multiply(animationMatrix, parentMatrix, animationMatrix);
+            instance.animationState.animationMatrices.set(node, animationMatrix);
+        });
+        // console.info(`Updated animation matrices for instance ${instance.instanceId.id}`);
+    }
+    maxDuration(animation) {
+        let maxDuration = 0;
+        for (const channel of animation.listChannels()) {
+            const sampler = channel.getSampler();
+            if (!sampler)
+                continue;
+            const input = sampler.getInput();
+            if (input) {
+                const times = input.getArray();
+                if (times && times.length > 0) {
+                    maxDuration = Math.max(maxDuration, times[times.length - 1]);
+                }
+            }
+        }
+        return maxDuration;
+    }
+    updateTime(state, deltaTime, duration) {
+        const newTime = state.currentTime + (deltaTime * state.speed);
+        return state.loop ? (newTime % duration) : Math.min(newTime, duration);
+    }
+    updateNodeAnimationTransforms(instance, animation) {
+        const animationState = instance.animationState;
+        for (const channel of animation.listChannels()) {
+            const time = instance.animationState.currentTime;
+            const sampler = channel.getSampler();
+            const targetNode = channel.getTargetNode();
+            const targetPath = channel.getTargetPath();
+            if (!sampler || !targetNode || !targetPath)
+                continue;
+            const input = sampler.getInput();
+            const output = sampler.getOutput();
+            if (!input || !output)
+                continue;
+            const { startIndex, endIndex, factor } = this.findKeyframeIndices(input.getArray(), time);
+            // Get interpolated value
+            const value = this.interpolateValues(output.getArray(), startIndex, endIndex, factor, targetPath);
+            let nodeTransforms = animationState.animationNodeTransforms.get(targetNode);
+            if (!nodeTransforms) {
+                console.warn(`Node transforms not found for node ${targetNode.getName()}`);
+                continue;
+            }
+            // Apply transform based on path type
+            switch (targetPath) {
+                case 'translation':
+                    nodeTransforms.translation = value;
+                    break;
+                case 'rotation':
+                    nodeTransforms.rotation = value;
+                    break;
+                case 'scale':
+                    nodeTransforms.scale = value;
+                    break;
             }
         }
     }
-    evaluateTrack(track, time) {
-        // Find the keyframes that bracket the current time
-        let startIndex = 0;
-        for (let i = 0; i < track.times.length - 1; i++) {
-            if (track.times[i] <= time && track.times[i + 1] > time) {
-                startIndex = i;
-                break;
+    updateNodeSkinningMatrices(instance) {
+        const modelData = this.modelLoader.getModelData(instance.instanceId.modelId);
+        if (!modelData)
+            return;
+        const scene = modelData.scene;
+        instance.animationState.animationMatrices;
+        scene.traverse(node => {
+            const skin = node.getSkin();
+            if (skin) {
+                this.updateBoneMatrices(node, instance);
             }
+        });
+    }
+    updateBoneMatrices(node, instance) {
+        var _a, _b, _c;
+        const skin = node.getSkin();
+        if (!skin) {
+            console.error(`Skin not found for node ${node.getName()}`);
+            return;
         }
-        const endIndex = startIndex + 1;
-        // Handle edge cases
-        if (endIndex >= track.times.length) {
-            return track.values.slice(startIndex * track.values.length / track.times.length, (startIndex + 1) * track.values.length / track.times.length);
+        const skinJoints = skin === null || skin === void 0 ? void 0 : skin.listJoints();
+        if (!skinJoints) {
+            console.error(`Skin joints not found for node ${node.getName()}`);
+            return;
         }
-        // Calculate interpolation factor (0 to 1)
-        const startTime = track.times[startIndex];
-        const endTime = track.times[endIndex];
-        const factor = (time - startTime) / (endTime - startTime);
-        const stride = track.values.length / track.times.length;
-        const startOffset = startIndex * stride;
-        const endOffset = endIndex * stride;
-        const startValues = track.values.slice(startOffset, startOffset + stride);
-        const endValues = track.values.slice(endOffset, endOffset + stride);
-        if (track.interpolation === 'STEP') {
-            return startValues;
+        const nodeBoneMatrices = (_a = instance.animationState.boneMatrices.get(node)) !== null && _a !== void 0 ? _a : new Float32Array(skinJoints.length * 16);
+        // Create node inverse matrix
+        const animationMatrices = instance.animationState.animationMatrices;
+        const nodeInverseMatrix = create$3();
+        const nodeAnimationMatrix = animationMatrices.get(node);
+        if (!nodeAnimationMatrix) {
+            console.error(`Animation matrix not found for node ${node.getName()}`);
+            return;
         }
-        // Only linear interpolation supported for now
-        // TODO: Add support for cubic spline interpolation
-        const result = new Float32Array(stride);
-        if (track.transformType === 'rotation') {
-            slerp(result, startValues, endValues, factor);
+        invert(nodeInverseMatrix, nodeAnimationMatrix);
+        const inverseBindMatrices = (_b = skin.getInverseBindMatrices()) === null || _b === void 0 ? void 0 : _b.getArray();
+        if (!inverseBindMatrices) {
+            console.error(`Inverse bind matrices not found for skin ${skin.getName()}`);
+            return;
         }
-        else {
-            // Linear interpolation for translation and scale
-            for (let i = 0; i < stride; i++) {
-                result[i] = startValues[i] + (endValues[i] - startValues[i]) * factor;
-            }
+        for (let jj = 0; jj < skinJoints.length; jj++) {
+            const joint = skinJoints[jj];
+            const jointMatrix = (_c = animationMatrices.get(joint)) !== null && _c !== void 0 ? _c : create$3();
+            const boneMatrix = create$3();
+            const inverseBindMatrix = this.mat4FromTypedArray(inverseBindMatrices, jj);
+            multiply(boneMatrix, nodeInverseMatrix, jointMatrix);
+            multiply(boneMatrix, boneMatrix, inverseBindMatrix);
+            // mat4.multiply(boneMatrix, jointMatrix, inverseBindMatrix);
+            nodeBoneMatrices.set(boneMatrix, jj * 16);
+        }
+        instance.animationState.boneMatrices.set(node, nodeBoneMatrices);
+    }
+    mat4FromTypedArray(array, index) {
+        const result = create$3();
+        const start = index * 16;
+        for (let i = 0; i < 16; i++) {
+            result[i] = array[start + i];
         }
         return result;
+    }
+    findKeyframeIndices(times, time) {
+        if (time <= times[0]) {
+            return { startIndex: 0, endIndex: 1, factor: 0 };
+        }
+        if (time >= times[times.length - 1]) {
+            const lastIndex = times.length - 1;
+            return {
+                startIndex: lastIndex - 1,
+                endIndex: lastIndex,
+                factor: 1
+            };
+        }
+        // Binary search for the appropriate time segment
+        let low = 0;
+        let high = times.length - 1;
+        while (low <= high) {
+            const mid = Math.floor((low + high) / 2);
+            if (mid + 1 >= times.length) {
+                continue;
+            }
+            if (times[mid] <= time && time < times[mid + 1]) {
+                const startIndex = mid;
+                const endIndex = mid + 1;
+                const factor = (time - times[startIndex]) / (times[endIndex] - times[startIndex]);
+                return { startIndex, endIndex, factor };
+            }
+            if (times[mid] > time) {
+                high = mid - 1;
+            }
+            else {
+                low = mid + 1;
+            }
+        }
+        // Fallback (should never happen with proper edge case handling)
+        return { startIndex: 0, endIndex: 0, factor: 0 };
+    }
+    interpolateValues(values, startIndex, endIndex, factor, targetPath) {
+        let stride = 0;
+        switch (targetPath) {
+            case 'translation':
+            case 'scale':
+                stride = 3;
+                break;
+            case 'rotation':
+                stride = 4;
+                break;
+        }
+        const start = values.subarray(startIndex * stride, (startIndex + 1) * stride);
+        const end = values.subarray(endIndex * stride, (endIndex + 1) * stride);
+        const result = new Float32Array(stride);
+        if (targetPath === 'rotation') {
+            slerp(result, start, end, factor);
+            normalize(result, result);
+        }
+        else {
+            lerp(result, start, end, factor);
+        }
+        return result;
+    }
+    startAnimation(instance, animationName, options) {
+        var _a, _b;
+        const animationState = instance.animationState;
+        animationState.currentAnimation = animationName;
+        animationState.currentTime = 0;
+        animationState.speed = (_a = options === null || options === void 0 ? void 0 : options.speed) !== null && _a !== void 0 ? _a : 1;
+        animationState.loop = (_b = options === null || options === void 0 ? void 0 : options.loop) !== null && _b !== void 0 ? _b : true;
+        animationState.playing = true;
+        //animationState.animationMatrices.clear();
+    }
+    stopAnimation(instance) {
+        instance.animationState.playing = false;
+        instance.animationState.currentAnimation = null;
+        instance.animationState.currentTime = 0;
     }
 }
 
@@ -14575,7 +14949,7 @@ class InstanceManager {
         this.dirtyInstances = new Set();
         this.gl = gl;
         this.modelLoader = modelLoader;
-        this.animationController = new AnimationController(modelLoader);
+        this._animationController = new AnimationController(modelLoader);
         this.defaultShaderProgram = this.gpuResources.getDefaultShader();
     }
     initialize() {
@@ -14618,7 +14992,6 @@ class InstanceManager {
         return { view: viewMatrix, projection: projectionMatrix };
     }
     createModel(modelId) {
-        var _a, _b;
         // Verify model exists
         const modelData = this.modelLoader.getModelData(modelId);
         if (!modelData) {
@@ -14643,9 +15016,12 @@ class InstanceManager {
                 currentAnimation: null,
                 currentTime: 0,
                 speed: 1,
-                loop: true
+                loop: true,
+                playing: false,
+                animationMatrices: new WeakMap(),
+                animationNodeTransforms: new WeakMap(),
+                boneMatrices: new WeakMap()
             },
-            jointMatrices: new Float32Array(((_b = (_a = modelData.jointData) === null || _a === void 0 ? void 0 : _a.length) !== null && _b !== void 0 ? _b : 0) * 16),
             worldMatrix: new Float32Array(16) // 4x4 matrix
         };
         // Store instance
@@ -14663,7 +15039,7 @@ class InstanceManager {
         if (!instance)
             return;
         // Update animation if active
-        if (instance.animationState.currentAnimation) {
+        if (instance.animationState.currentAnimation !== null) {
             this.updateAnimation(instance, deltaTime);
         }
         // Update world matrix if transform is dirty
@@ -14672,10 +15048,6 @@ class InstanceManager {
         }
     }
     render(viewProjection) {
-        // Update GPU buffers for dirty instances
-        if (this.dirtyInstances.size > 0) {
-            this.updateGPUBuffers();
-        }
         // Render each model group
         for (const [modelId, instanceGroup] of this.instancesByModel) {
             this.renderModelInstances(modelId, instanceGroup, viewProjection);
@@ -14708,6 +15080,12 @@ class InstanceManager {
             this.startAnimation(instanceData, animationName, options);
         }
     }
+    updateModelAnimation(instance, deltaTime) {
+        const instanceData = this.instances.get(instance.instanceId.id);
+        if (instanceData) {
+            this.updateAnimation(instanceData, deltaTime);
+        }
+    }
     stopModelAnimation(instance) {
         const instanceData = this.instances.get(instance.instanceId.id);
         if (instanceData) {
@@ -14735,12 +15113,12 @@ class InstanceManager {
         }
     }
     updateAnimation(instance, deltaTime) {
-        if (!instance.animationState.currentAnimation)
+        if (instance.animationState.currentAnimation === null || !instance.animationState.playing)
             return;
-        this.animationController.updateAnimation(instance, deltaTime);
+        this._animationController.updateAnimation(instance, deltaTime);
         this.dirtyInstances.add(instance.instanceId.id);
     }
-    updateWorldMatrix(instance) {
+    updateWorldMatrixWithScale(instance) {
         // Calculate world matrix from position, rotation, and scale
         const matrix = create$3();
         // Create translation matrix
@@ -14753,48 +15131,11 @@ class InstanceManager {
         scale(matrix, matrix, instance.transform.scale);
         instance.worldMatrix.set(matrix);
     }
-    updateGPUBuffers() {
-        // Just clear dirty instances as we're not using instance buffers anymore
-        this.dirtyInstances.clear();
-    }
-    updateModelBuffers(modelId, instances) {
-        let bufferData = this.instanceBuffers.get(modelId);
-        if (!bufferData) {
-            const modelMatrix = this.gl.createBuffer();
-            const jointMatrices = this.gl.createBuffer();
-            if (!modelMatrix || !jointMatrices) {
-                throw this.createError(ModelErrorCode.GL_ERROR, 'Failed to create WebGL buffers');
-            }
-            bufferData = {
-                modelMatrix,
-                jointMatrices,
-                count: instances.length
-            };
-            this.instanceBuffers.set(modelId, bufferData);
-        }
-        // Update model matrix buffer
-        const modelMatrixData = new Float32Array(instances.length * 16);
-        for (let i = 0; i < instances.length; i++) {
-            modelMatrixData.set(instances[i].worldMatrix, i * 16);
-        }
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, bufferData.modelMatrix);
-        this.gl.bufferData(this.gl.ARRAY_BUFFER, modelMatrixData, this.gl.DYNAMIC_DRAW);
-        // Update joint matrices buffer if instances have skinning
-        if (instances.some(instance => instance.jointMatrices)) {
-            const jointMatrixData = new Float32Array(instances.length *
-                Math.max(...instances.map(i => { var _a, _b; return (_b = (_a = i.jointMatrices) === null || _a === void 0 ? void 0 : _a.length) !== null && _b !== void 0 ? _b : 0; })));
-            let offset = 0;
-            for (const instance of instances) {
-                if (instance.jointMatrices) {
-                    jointMatrixData.set(instance.jointMatrices, offset);
-                    offset += instance.jointMatrices.length;
-                }
-            }
-            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, bufferData.jointMatrices);
-            this.gl.bufferData(this.gl.ARRAY_BUFFER, jointMatrixData, this.gl.DYNAMIC_DRAW);
-        }
-        // Unbind buffer
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, null);
+    updateWorldMatrix(instance) {
+        // Calculate world matrix from position, rotation, and scale
+        const srtMatrix = create$3();
+        fromRotationTranslationScale(srtMatrix, instance.transform.rotation, instance.transform.position, instance.transform.scale);
+        instance.worldMatrix.set(srtMatrix);
     }
     renderModelInstances(modelId, instanceGroup, viewProjection) {
         var _a;
@@ -14814,9 +15155,11 @@ class InstanceManager {
             // Update world matrix
             this.updateWorldMatrix(instance);
             // For each mesh in the model
-            for (const mesh of modelData.meshes) {
+            for (const renderableNode of modelData.renderableNodes) {
+                renderableNode.node;
+                const mesh = renderableNode.modelMesh;
                 for (const primitive of mesh.primitives) {
-                    modelData.materials[primitive.material];
+                    // const material = modelData.materials[primitive.material];
                     // const shader = material.program;
                     // TODO: move to GPUResourceManager
                     const shader = this.defaultShaderProgram;
@@ -14830,21 +15173,45 @@ class InstanceManager {
                     const projectionLoc = this.gl.getUniformLocation(shader, 'u_Projection');
                     const modelMatrixLoc = this.gl.getUniformLocation(shader, 'u_Model');
                     const normalMatrixLoc = this.gl.getUniformLocation(shader, 'u_NormalMatrix');
+                    const nodeMatrixLoc = this.gl.getUniformLocation(shader, 'u_NodeMatrix');
+                    const nodeBonesMatricesLoc = this.gl.getUniformLocation(shader, 'u_BoneMatrices');
+                    const useSkinningLoc = this.gl.getUniformLocation(shader, 'u_UseSkinning');
                     this.gl.uniformMatrix4fv(viewLoc, false, viewProjection.view);
                     this.gl.uniformMatrix4fv(projectionLoc, false, viewProjection.projection);
                     this.gl.uniformMatrix4fv(modelMatrixLoc, false, instance.worldMatrix);
-                    // Calculate normal matrix (inverse transpose of the upper 3x3 model matrix)
-                    const normalMatrix = create$4();
-                    normalFromMat4(normalMatrix, instance.worldMatrix);
-                    // Set the uniform
-                    this.gl.uniformMatrix3fv(normalMatrixLoc, false, normalMatrix);
-                    // 4. Handle skinning if present
-                    if (instance.jointMatrices && instance.jointMatrices.length > 0) {
-                        const jointMatricesLoc = this.gl.getUniformLocation(shader, 'u_JointMatrices');
-                        if (jointMatricesLoc) {
-                            this.gl.uniformMatrix4fv(jointMatricesLoc, false, instance.jointMatrices);
+                    const animationState = instance.animationState;
+                    const animationMatrices = animationState.animationMatrices;
+                    const animationMatrix = animationMatrices.get(renderableNode.node);
+                    if (nodeMatrixLoc) {
+                        if (animationMatrix) {
+                            this.gl.uniformMatrix4fv(nodeMatrixLoc, false, animationMatrix);
+                        }
+                        else {
+                            this.gl.uniformMatrix4fv(nodeMatrixLoc, false, create$3());
                         }
                     }
+                    if (nodeBonesMatricesLoc) {
+                        const nodeBoneMatrices = animationState.boneMatrices.get(renderableNode.node);
+                        if (nodeBoneMatrices) {
+                            this.gl.uniformMatrix4fv(nodeBonesMatricesLoc, false, nodeBoneMatrices);
+                        }
+                    }
+                    if (useSkinningLoc) {
+                        this.gl.uniform1i(useSkinningLoc, renderableNode.useSkinning ? 1 : 0);
+                    }
+                    // Calculate normal matrix (inverse transpose of the upper 3x3 model matrix)
+                    const normalMatrix = create$4();
+                    // Get nodeMatrix from instance from animation matrices
+                    const nodeMatrix = animationMatrices.get(renderableNode.node);
+                    if (nodeMatrix) {
+                        const nodeWorldMatrix = create$3();
+                        multiply(nodeWorldMatrix, nodeMatrix, instance.worldMatrix);
+                        normalFromMat4(normalMatrix, nodeWorldMatrix);
+                    }
+                    else {
+                        normalFromMat4(normalMatrix, instance.worldMatrix);
+                    }
+                    this.gl.uniformMatrix3fv(normalMatrixLoc, false, normalMatrix);
                     // 5. Bind material properties (textures and uniforms)
                     this.gpuResources.bindShaderAndMaterial(this.defaultShaderProgram, primitive.material);
                     // 6. Draw
@@ -14863,11 +15230,13 @@ class InstanceManager {
     }
     startAnimation(instance, animationName, options) {
         var _a, _b;
-        instance.animationState.currentAnimation = animationName;
-        instance.animationState.currentTime = 0;
+        const animationState = instance.animationState;
+        animationState.currentAnimation = animationName;
+        animationState.currentTime = 0;
+        animationState.playing = true;
         if (options) {
-            instance.animationState.speed = (_a = options.speed) !== null && _a !== void 0 ? _a : 1;
-            instance.animationState.loop = (_b = options.loop) !== null && _b !== void 0 ? _b : true;
+            animationState.speed = (_a = options.speed) !== null && _a !== void 0 ? _a : 1;
+            animationState.loop = (_b = options.loop) !== null && _b !== void 0 ? _b : true;
         }
     }
     cleanupInstance(instanceId) {
@@ -14893,6 +15262,9 @@ class InstanceManager {
             instanceData.renderOptions.useNormalMap = enabled;
             this.dirtyInstances.add(instance.instanceId.id);
         }
+    }
+    get animationController() {
+        return this._animationController;
     }
 }
 

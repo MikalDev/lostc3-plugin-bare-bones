@@ -1,6 +1,7 @@
-import { IInstanceManager, IGPUResourceManager, type AnimationOptions } from './types';
+import { InstanceData, IInstanceManager, IGPUResourceManager, type AnimationOptions } from './types';
 import { ModelLoader } from './ModelLoader';
 import { Model } from './Model';
+import { AnimationController } from './AnimationController';
 import { mat4 } from 'gl-matrix';
 export declare class InstanceManager implements IInstanceManager {
     private gpuResources;
@@ -12,7 +13,7 @@ export declare class InstanceManager implements IInstanceManager {
     private instanceBuffers;
     private nextInstanceId;
     private dirtyInstances;
-    private animationController;
+    private _animationController;
     constructor(gl: WebGL2RenderingContext, modelLoader: ModelLoader, gpuResources: IGPUResourceManager);
     initialize(): void;
     createViewProjection(fov: number, resolution: {
@@ -33,17 +34,18 @@ export declare class InstanceManager implements IInstanceManager {
     setModelRotation(quaternion: Float32Array, instance: Model): void;
     setModelScale(x: number, y: number, z: number, instance: Model): void;
     playModelAnimation(animationName: string, instance: Model, options?: AnimationOptions): void;
+    updateModelAnimation(instance: Model, deltaTime: number): void;
     stopModelAnimation(instance: Model): void;
     private createError;
     private addToModelGroup;
     private removeFromModelGroup;
-    private updateAnimation;
+    updateAnimation(instance: InstanceData, deltaTime: number): void;
+    private updateWorldMatrixWithScale;
     private updateWorldMatrix;
-    private updateGPUBuffers;
-    private updateModelBuffers;
     private renderModelInstances;
     private startAnimation;
     private cleanupInstance;
     setModelNormalMapEnabled(enabled: boolean, instance: Model): void;
+    get animationController(): AnimationController;
 }
 //# sourceMappingURL=InstanceManager.d.ts.map

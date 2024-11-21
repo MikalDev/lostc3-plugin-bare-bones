@@ -1,6 +1,5 @@
 import typescript from '@rollup/plugin-typescript';
 import resolve from '@rollup/plugin-node-resolve';
-import commonjs from '@rollup/plugin-commonjs';
 import { writeFileSync, readdirSync, mkdirSync, existsSync } from 'fs';
 import { basename, join } from 'path';
 

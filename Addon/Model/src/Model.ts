@@ -1,59 +1,53 @@
 import { InstanceId, IModel, IInstanceManager, AnimationOptions } from './types';
-import { quat } from 'gl-matrix';
 
 export class Model implements IModel {
     readonly instanceId: InstanceId;
-    private manager: IInstanceManager;
+    private _manager: IInstanceManager;
 
     constructor(instanceId: InstanceId, manager: IInstanceManager) {
         this.instanceId = instanceId;
-        this.manager = manager;
+        this._manager = manager;
     }
 
     public setNormalMapEnabled(enabled: boolean): void {
-        this.manager.setModelNormalMapEnabled(enabled, this);
+        this._manager.setModelNormalMapEnabled(enabled, this);
     }
 
     public setPosition(x: number, y: number, z: number): void {
-        this.manager.setModelPosition(x, y, z, this);
+        this._manager.setModelPosition(x, y, z, this);
     }
 
     public setRotation(quaternion: Float32Array): void {
-        this.manager.setModelRotation(quaternion, this);
+        this._manager.setModelRotation(quaternion, this);
     }
 
     public setScale(x: number, y: number, z: number): void {
-        this.manager.setModelScale(x, y, z, this);
+        this._manager.setModelScale(x, y, z, this);
     }
 
     public playAnimation(animationName: string, options?: AnimationOptions): void {
-        this.manager.playModelAnimation(animationName, this, options);
+        this._manager.playModelAnimation(animationName, this, options);
+    }
+
+    public updateAnimation(deltaTime: number): void {
+        this._manager.updateModelAnimation(this, deltaTime);
     }
 
     public stopAnimation(): void {
-        this.manager.stopModelAnimation(this);
+        this._manager.stopModelAnimation(this);
     }
 
     // Additional convenience methods
     public setQuaternion(x: number, y: number, z: number, w: number): void {
         const quat = new Float32Array([x, y, z, w]);
-        this.manager.setModelRotation(
+        this._manager.setModelRotation(
             quat,
             this
         );
     }
 
-    // Helper for converting Euler angles to quaternion
-    private eulerToQuaternion(
-        x: number, 
-        y: number, 
-        z: number
-    ): Float32Array {
-
-        // Create quaternion from Euler angles (XYZ order)
-        const quaternion = quat.create();
-        quat.fromEuler(quaternion, x, y, z);
-        
-        return quaternion as Float32Array;
+    get manager(): IInstanceManager {
+        return this._manager;
     }
+
 }

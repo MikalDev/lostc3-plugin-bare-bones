@@ -158,19 +158,24 @@ export class GPUResourceManager implements IGPUResourceManager {
 
     getDefaultShader(): WebGLProgram {
         const vertexShader = `#version 300 es
+        precision highp float;
+        precision highp int;
         layout(location = 0) in vec3 position;
         layout(location = 1) in vec3 normal;
         layout(location = 2) in vec2 uv;
-        layout(location = 3) in vec4 weights;
-        layout(location = 4) in uvec4 joints;
+        layout(location = 3) in uvec4 joints;
+        layout(location = 4) in vec4 weights;
         layout(location = 5) in vec4 tangent;
+
+        const int MAX_BONES = 64;
 
         uniform mat4 u_Model;
         uniform mat4 u_View;
         uniform mat4 u_Projection;
-        uniform mat4 u_JointMatrices[64];  // Maximum number of joints
+        uniform mat4 u_BoneMatrices[MAX_BONES];  // Maximum number of joints
         uniform mat3 u_NormalMatrix;
-
+        uniform mat4 u_NodeMatrix;
+        uniform bool u_UseSkinning;
         out vec2 v_UV;
         out vec3 v_Normal;
         out vec3 v_Position;
@@ -178,17 +183,46 @@ export class GPUResourceManager implements IGPUResourceManager {
 
         void main() {
             v_UV = uv;
-            vec3 N = normalize(u_NormalMatrix * normal);
-            vec3 T = normalize(u_NormalMatrix * tangent.xyz);
             // Calculate bitangent using cross product and tangent.w for handedness
-            vec3 B = normalize(cross(N, T)) * tangent.w;
+
+            // Set nPosition to the vertex position
+            vec3 nPosition = position;
+
+            highp vec4 skinVertex = vec4(0.0);
+            highp vec3 skinnedNormal = vec3(0.0);
+            highp vec3 skinnedTangent = vec3(0.0);
+
+            vec3 N;
+            vec3 T;
+
+            highp float handedness = tangent.w;
+
+            if (u_UseSkinning) {
+                for (int i = 0; i < 4; i++) {
+                    uint joint = joints[i];
+                    skinVertex += weights[i] * (u_BoneMatrices[joint] * vec4(position, 1.0));
+                    skinnedNormal += weights[i] * (mat3(u_BoneMatrices[joint]) * normal); // Apply skinning to normals
+                    skinnedTangent += weights[i] * (mat3(u_BoneMatrices[joint]) * tangent.xyz);
+                }
+                gl_Position = u_Projection * u_View * u_Model * skinVertex;
+                // gl_Position = u_Projection * u_View * u_NodeMatrix * skinVertex;
+                v_Position = (u_Model * skinVertex).xyz;
+                N = normalize(u_NormalMatrix * skinnedNormal);
+                T = normalize(u_NormalMatrix * skinnedTangent.xyz);
+            } else {
+                gl_Position = u_Projection * u_View * u_Model * u_NodeMatrix * vec4(nPosition, 1.0);
+                // gl_Position = u_Projection * u_View * u_Model * vec4(nPosition, 1.0);
+                v_Position = (u_Model * u_NodeMatrix * vec4(nPosition, 1.0)).xyz;
+                N = normalize(u_NormalMatrix * normal);
+                T = normalize(u_NormalMatrix * tangent.xyz);
+            }
+
+            vec3 B = normalize(cross(N, T)) * handedness;
             
+            v_Normal = N;
             // Create TBN matrix for transforming from tangent space to world space
             v_TBN = mat3(T, B, N);
             
-            v_Normal = N;
-            v_Position = (u_Model * vec4(position, 1.0)).xyz;
-            gl_Position = u_Projection * u_View * u_Model * vec4(position, 1.0);
         }`;
 
         const fragmentShader = `#version 300 es

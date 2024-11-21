@@ -1,8 +1,9 @@
-import { Animation,Accessor, Document, Node, Primitive, WebIO, Texture, AnimationSampler, TextureInfo } from '@gltf-transform/core';
+import { Animation,Accessor, Document, Node, Primitive, WebIO, Texture, Mesh, TextureInfo } from '@gltf-transform/core';
 import { ModelError, ModelErrorCode, createModelError } from './errors';
-import { AttributeSemantic, ModelId, ModelData, IGPUResourceManager, Mesh, MeshPrimitive, MaterialData, AnimationClip, AnimationTrack, IModelLoader, SAMPLER_TEXTURE_UNIT_MAP } from './types';
+import { AttributeSemantic, ModelId, ModelData, IGPUResourceManager, MeshPrimitive, MaterialData, IModelLoader, SAMPLER_TEXTURE_UNIT_MAP, ModelMesh } from './types';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { DracoDecoderModule } from './draco/draco_decoder_gltf';
+import { mat4} from 'gl-matrix';
 
 export class ModelLoader implements IModelLoader {
     public gl: WebGL2RenderingContext;
@@ -39,6 +40,7 @@ export class ModelLoader implements IModelLoader {
             // Load and parse GLB file
             const document = await this.webio.read(url);
             console.log('ModelLoader: read', document);
+
             const modelData = await this.processDocument(document);
             
             // Store model data
@@ -79,7 +81,10 @@ export class ModelLoader implements IModelLoader {
             meshes: [],
             materials: [],
             animations: new Map(),
-            jointData: []
+            jointData: [],
+            rootNode: document.getRoot().listScenes()[0].listChildren()[0],
+            scene: document.getRoot().listScenes()[0],
+            renderableNodes: []
         };
 
         /*
@@ -90,6 +95,9 @@ export class ModelLoader implements IModelLoader {
             this.processJoints(document, modelData)
         ]);
         */
+
+        console.log('ModelLoader: processDocument',);
+
         // Process each component sequentially for easier debugging
         console.log('ModelLoader: processDocument', modelData);
         await this.processMeshes(document, modelData);
@@ -100,8 +108,26 @@ export class ModelLoader implements IModelLoader {
         console.log('ModelLoader: processAnimations', modelData);
         await this.processJoints(document, modelData);
         console.log('ModelLoader: processJoints', modelData);
+        await this.processRenderableNodes(document, modelData);
+        console.log('ModelLoader: processRenderableNodes', modelData);
 
         return modelData;
+    }
+
+    private async processRenderableNodes(document: Document, modelData: ModelData): Promise<void> {
+        const scene = document.getRoot().listScenes()[0];
+        scene.traverse(node => {
+            const mesh = node.getMesh();
+            if (mesh) {
+                const modelMesh = this.processMesh(mesh, document);
+                console.log('ModelLoader: processRenderableNodes', node.getName(), !!node.getSkin());
+                modelData.renderableNodes.push({
+                    node,
+                    modelMesh,
+                    useSkinning: !!node.getSkin()
+                });
+            }
+        });
     }
 
     private async processMeshes(
@@ -111,7 +137,7 @@ export class ModelLoader implements IModelLoader {
         const meshes = document.getRoot().listMeshes();
         
         for (const mesh of meshes) {
-            const modelMesh: Mesh = {
+            const modelMesh: ModelMesh = {
                 primitives: [],
                 name: mesh.getName() || '',
             };
@@ -125,14 +151,28 @@ export class ModelLoader implements IModelLoader {
         }
     }
 
+    private processMesh(mesh: Mesh, document: Document): ModelMesh {
+        const modelMesh: ModelMesh = {
+            primitives: [],
+            name: mesh.getName() || ''
+        };
+        for (const primitive of mesh.listPrimitives()) {
+            const primData = this.processPrimitive(primitive, document);
+            modelMesh.primitives.push(primData);
+        }
+        return modelMesh;
+    }
+
     private processPrimitive(
         primitive: Primitive,
-        document: Document,
+        document: Document
     ): MeshPrimitive {
         const vao = this.gpuResources.createVertexArray();
         this.gl.bindVertexArray(vao);
 
         const attributes: MeshPrimitive['attributes'] = {};
+
+        let hasSkin = false;
         
         // Get position attribute first and validate
         const positionAttribute = primitive.getAttribute('POSITION');
@@ -168,14 +208,37 @@ export class ModelLoader implements IModelLoader {
             const elementSize = TYPE_TO_SIZE[accessor.getType()] ?? 1;
             const normalized = accessor.getNormalized();
 
-            this.gl.vertexAttribPointer(
-                location,
-                elementSize,
-                componentType,
-                normalized,
+            console.log('ModelLoader: processPrimitive', location, semantic, componentType, elementSize, normalized);
+
+            if (semantic === 'JOINTS_0') {
+                hasSkin = true;
+                console.log('ModelLoader: processPrimitive', componentType, elementSize, location);
+                this.gl.vertexAttribIPointer(
+                    location,
+                    elementSize,
+                    componentType,
+                    0,  // stride of 0 lets WebGL handle stride automatically
+                    0   // no offset needed
+                );
+            } else {
+                this.gl.vertexAttribPointer(
+                    location,
+                    elementSize,
+                    componentType,
+                    normalized,
                 0,  // stride of 0 lets WebGL handle stride automatically
                 0   // no offset needed
-            );
+                );
+            }
+        }
+
+        // Disable skinning attributes if not used
+        if (!hasSkin) {
+            console.log('ModelLoader: processPrimitive - disable skinning attributes');
+            this.gl.disableVertexAttribArray(this.getAttributeLocation('JOINTS_0'));
+            this.gl.vertexAttribI4uiv(this.getAttributeLocation('JOINTS_0'), [0, 0, 0, 0]);
+            this.gl.disableVertexAttribArray(this.getAttributeLocation('WEIGHTS_0'));
+            this.gl.vertexAttrib4fv(this.getAttributeLocation('WEIGHTS_0'), [0, 0, 0, 0]);
         }
 
         // Process indices
@@ -281,56 +344,16 @@ export class ModelLoader implements IModelLoader {
         }
     }
 
-    private processAnimations(
-        document: Document, 
-        modelData: ModelData
-    )  {
+    private processAnimations(document: Document, modelData: ModelData): void {
         const animations = document.getRoot().listAnimations();
-        
         for (const animation of animations) {
-            const clip: AnimationClip = {
-                name: animation.getName() || '',
-                duration: this.calculateAnimationDuration(animation),
-                tracks: []
-            };
-
-            // Process each channel instead of sampler directly
-            for (const channel of animation.listChannels()) {
-                const sampler = channel.getSampler();
-                const targetNode = channel.getTargetNode();
-                
-                if (!sampler || !targetNode) {
-                    throw this.createModelError(
-                        ModelErrorCode.INVALID_DATA,
-                        'Animation channel missing sampler or target node'
-                    );
-                }
-
-                // Add this: Get the target path (rotation, translation, or scale)
-                const targetPath = channel.getTargetPath();
-                if (targetPath !== 'translation' && 
-                    targetPath !== 'rotation' && 
-                    targetPath !== 'scale') {
-                    continue; // Skip non-skeletal animation channels
-                }
-
-                const jointIndex = modelData.jointData.findIndex(
-                    joint => joint.name === targetNode.getName()
-                );
-
-                if (jointIndex === -1) continue;
-
-                // Modify to include transform type
-                const track = this.processAnimationTrack(sampler, jointIndex, targetPath);
-                clip.tracks.push(track);
-            }
-
-            modelData.animations.set(clip.name, clip);
+            modelData.animations.set(animation.getName(), animation);
         }
     }
 
     private processJoints(document: Document, modelData: ModelData) {
         const skins = document.getRoot().listSkins();
+        console.info('ModelLoader: processJoints:', skins.length);
         if (skins.length === 0) return;
 
         const skin = skins[0];
@@ -363,8 +386,11 @@ export class ModelLoader implements IModelLoader {
         modelData.jointData = joints.map((joint, index) => {
             // Get the inverse bind matrix for this joint (16 floats per matrix)
             const matrixOffset = index * 16;
-            const inverseBindMatrix = new Float32Array(
-                matrices.slice(matrixOffset, matrixOffset + 16)
+            const inverseBindMatrix = mat4.fromValues(
+                matrices[matrixOffset], matrices[matrixOffset + 1], matrices[matrixOffset + 2], matrices[matrixOffset + 3],
+                matrices[matrixOffset + 4], matrices[matrixOffset + 5], matrices[matrixOffset + 6], matrices[matrixOffset + 7],
+                matrices[matrixOffset + 8], matrices[matrixOffset + 9], matrices[matrixOffset + 10], matrices[matrixOffset + 11],
+                matrices[matrixOffset + 12], matrices[matrixOffset + 13], matrices[matrixOffset + 14], matrices[matrixOffset + 15]
             );
 
             // Get child indices, validating each one
@@ -376,9 +402,11 @@ export class ModelLoader implements IModelLoader {
                 index,
                 name: joint.getName() || `joint_${index}`,
                 inverseBindMatrix,
-                children
+                children,
+                node: joint
             };
         });
+        console.log('ModelLoader: processJoints', modelData.jointData);
     }
 
     private cleanupModelResources(modelData: ModelData): void {
@@ -499,64 +527,6 @@ export class ModelLoader implements IModelLoader {
 
     private getIndexType(accessor: Accessor | null): number {
         return accessor?.getComponentType() ?? this.gl.UNSIGNED_SHORT;
-    }
-
-    private calculateAnimationDuration(animation: Animation): number {
-        let maxTime = 0;
-        for (const sampler of animation.listSamplers()) {
-            const inputAccessor = sampler.getInput();
-            if (!inputAccessor) {
-                throw this.createModelError(
-                    ModelErrorCode.INVALID_DATA,
-                    'Animation sampler missing input accessor'
-                );
-            }
-            const times = inputAccessor.getArray();
-            if (times && times.length > 0) {
-                maxTime = Math.max(maxTime, times[times.length - 1]);
-            }
-        }
-        return maxTime;
-    }
-
-    private processAnimationTrack(
-        sampler: AnimationSampler, 
-        jointIndex: number,
-        transformType: 'translation' | 'rotation' | 'scale'
-    ): AnimationTrack {
-        const input = sampler.getInput();
-        const output = sampler.getOutput();
-        
-        if (!input || !output) {
-            throw this.createModelError(
-                ModelErrorCode.INVALID_DATA,
-                'Animation sampler missing input or output accessor'
-            );
-        }
-
-        return {
-            jointIndex,
-            times: new Float32Array(input.getArray() || []),
-            values: new Float32Array(output.getArray() || []),
-            interpolation: sampler.getInterpolation(),
-            transformType
-        };
-    }
-
-    getAnimation(modelId: string, animationName: string): AnimationClip | undefined {
-        const modelData = this.getModelData(modelId);
-        return modelData?.animations.get(animationName);
-    }
-
-    private createGLBuffer(): WebGLBuffer {
-        const buffer = this.gl.createBuffer();
-        if (!buffer) {
-            throw this.createModelError(
-                ModelErrorCode.LOAD_FAILED,
-                'Failed to create WebGL buffer'
-            );
-        }
-        return buffer;
     }
 
     // Helper function to map semantics to attribute locations

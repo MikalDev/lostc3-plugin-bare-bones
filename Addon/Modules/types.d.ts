@@ -1,4 +1,17 @@
 import { Model } from './Model';
+import { Node, Animation, Scene } from '@gltf-transform/core';
+import { mat4, vec3, vec4 } from 'gl-matrix';
+export declare const MAX_BONES = 64;
+export interface IAnimationTarget {
+    updateTransform(path: 'translation' | 'rotation' | 'scale', values: Float32Array): void;
+}
+export interface INodeHierarchy {
+    getWorldMatrix(): Float32Array;
+    getChildren(): Node[];
+}
+export interface ISkinDeformer {
+    updateJointMatrices(worldMatrices: Map<number, Float32Array>): void;
+}
 export interface ModelId {
     readonly id: string;
     readonly meshCount: number;
@@ -14,10 +27,20 @@ export interface Transform {
 }
 export interface AnimationState {
     currentAnimation: string | null;
+    playing: boolean;
     currentTime: number;
     speed: number;
     blendFactor?: number;
     loop: boolean;
+    animationNodeTransforms: WeakMap<Node, NodeTransforms>;
+    animationMatrices: WeakMap<Node, mat4>;
+    boneMatrices: WeakMap<Node, Float32Array>;
+}
+export interface NodeTransforms {
+    rotation: vec4;
+    translation: vec3;
+    scale: vec3;
+    weights?: Float32Array;
 }
 export interface MeshPrimitive {
     vao: WebGLVertexArrayObject;
@@ -35,7 +58,7 @@ export interface MeshPrimitive {
         WEIGHTS_0?: WebGLBuffer;
     };
 }
-export interface Mesh {
+export interface ModelMesh {
     primitives: MeshPrimitive[];
     name: string;
 }
@@ -45,25 +68,12 @@ export interface MaterialData {
     uniforms?: Record<string, number | boolean | number[]>;
 }
 export declare const SAMPLER_TEXTURE_UNIT_MAP: Record<string, number>;
-export interface AnimationClip {
-    name: string;
-    duration: number;
-    tracks: AnimationTrack[];
-}
 export type SkeletalTransformType = 'translation' | 'rotation' | 'scale';
 export type InterpolationType = 'LINEAR' | 'STEP' | 'CUBICSPLINE';
-export interface AnimationTrack {
-    jointIndex: number;
-    times: Float32Array;
-    values: Float32Array;
-    interpolation: InterpolationType;
-    transformType: SkeletalTransformType;
-}
 export interface InstanceData {
     readonly instanceId: InstanceId;
     transform: Transform;
     animationState: AnimationState;
-    jointMatrices: Float32Array;
     worldMatrix: Float32Array;
     renderOptions: {
         useNormalMap?: boolean;
@@ -74,7 +84,6 @@ export interface IModelLoader {
     loadModel(url: string): Promise<ModelId>;
     getModelData(modelId: string): ModelData | null;
     deleteModel(modelId: string): void;
-    getAnimation(modelId: string, animationName: string): AnimationClip | undefined;
 }
 export interface IInstanceManager {
     setModelPosition(x: number, y: number, z: number, instance: Model): void;
@@ -83,6 +92,7 @@ export interface IInstanceManager {
     playModelAnimation(name: string, instance: Model, options?: AnimationOptions): void;
     stopModelAnimation(instance: Model): void;
     setModelNormalMapEnabled(enabled: boolean, instance: Model): void;
+    updateModelAnimation(instance: Model, deltaTime: number): void;
 }
 export interface IModel {
     readonly instanceId: InstanceId;
@@ -101,16 +111,24 @@ export declare enum TextureType {
     Emissive = 4
 }
 export interface ModelData {
-    meshes: Mesh[];
+    meshes: ModelMesh[];
     materials: MaterialData[];
-    animations: Map<string, AnimationClip>;
+    animations: Map<string, Animation>;
     jointData: JointData[];
+    rootNode: Node;
+    scene: Scene;
+    renderableNodes: {
+        node: Node;
+        modelMesh: ModelMesh;
+        useSkinning: boolean;
+    }[];
 }
 export interface JointData {
     index: number;
     name: string;
-    inverseBindMatrix: Float32Array;
+    inverseBindMatrix: mat4;
     children: number[];
+    node: Node;
 }
 export interface AnimationOptions {
     loop?: boolean;
@@ -164,4 +182,11 @@ export interface SpotLight extends LightBase {
     attenuation: number;
 }
 export type Light = PointLight | DirectionalLight | SpotLight;
+export interface AnimationTrack {
+    jointIndex: number;
+    times: Float32Array;
+    values: Float32Array;
+    interpolation: string;
+    transformType: 'translation' | 'rotation' | 'scale';
+}
 //# sourceMappingURL=types.d.ts.map

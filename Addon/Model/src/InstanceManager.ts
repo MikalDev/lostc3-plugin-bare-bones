@@ -1,9 +1,10 @@
 import { ModelError, ModelErrorCode } from './errors';
-import { InstanceData, IInstanceManager, IGPUResourceManager, InstanceId, type AnimationOptions, MaterialData, SAMPLER_TEXTURE_UNIT_MAP } from './types';
+import { InstanceData, IInstanceManager, IGPUResourceManager, InstanceId, type AnimationOptions, MAX_BONES, NodeTransforms } from './types';
 import { ModelLoader } from './ModelLoader';
 import { Model } from './Model';
 import { AnimationController } from './AnimationController';
 import { mat3, mat4 } from 'gl-matrix';
+import { Node } from '@gltf-transform/core';
 
 export class InstanceManager implements IInstanceManager {
     private gl: WebGL2RenderingContext;
@@ -22,7 +23,7 @@ export class InstanceManager implements IInstanceManager {
     private nextInstanceId = 1;
     private dirtyInstances: Set<number> = new Set();
 
-    private animationController: AnimationController;
+    private _animationController: AnimationController;
 
     constructor(
         gl: WebGL2RenderingContext,
@@ -31,7 +32,7 @@ export class InstanceManager implements IInstanceManager {
     ) {
         this.gl = gl;
         this.modelLoader = modelLoader;
-        this.animationController = new AnimationController(modelLoader);
+        this._animationController = new AnimationController(modelLoader);
         this.defaultShaderProgram = this.gpuResources.getDefaultShader();
     }
 
@@ -123,9 +124,12 @@ export class InstanceManager implements IInstanceManager {
                 currentAnimation: null,
                 currentTime: 0,
                 speed: 1,
-                loop: true
+                loop: true,
+                playing: false,
+                animationMatrices: new WeakMap<Node, mat4>(),
+                animationNodeTransforms: new WeakMap<Node, NodeTransforms>(),
+                boneMatrices: new WeakMap<Node, Float32Array>()
             },
-            jointMatrices: new Float32Array((modelData.jointData?.length ?? 0) * 16),
             worldMatrix: new Float32Array(16) // 4x4 matrix
         };
 
@@ -148,7 +152,7 @@ export class InstanceManager implements IInstanceManager {
         if (!instance) return;
 
         // Update animation if active
-        if (instance.animationState.currentAnimation) {
+        if (instance.animationState.currentAnimation !== null ) {
             this.updateAnimation(instance, deltaTime);
         }
 
@@ -159,11 +163,6 @@ export class InstanceManager implements IInstanceManager {
     }
 
     render(viewProjection: { view: mat4, projection: mat4 }): void {
-        // Update GPU buffers for dirty instances
-        if (this.dirtyInstances.size > 0) {
-            this.updateGPUBuffers();
-        }
-
         // Render each model group
         for (const [modelId, instanceGroup] of this.instancesByModel) {
             this.renderModelInstances(modelId, instanceGroup, viewProjection);
@@ -205,6 +204,13 @@ export class InstanceManager implements IInstanceManager {
         }
     }
 
+    public updateModelAnimation(instance: Model, deltaTime: number): void {
+        const instanceData = this.instances.get(instance.instanceId.id);
+        if (instanceData) {
+            this.updateAnimation(instanceData, deltaTime);
+        }
+    }
+
     public stopModelAnimation(instance: Model): void {
         const instanceData = this.instances.get(instance.instanceId.id);
         if (instanceData) {
@@ -235,14 +241,14 @@ export class InstanceManager implements IInstanceManager {
         }
     }
 
-    private updateAnimation(instance: InstanceData, deltaTime: number): void {
-        if (!instance.animationState.currentAnimation) return;
+    public updateAnimation(instance: InstanceData, deltaTime: number): void {
+        if (instance.animationState.currentAnimation === null || !instance.animationState.playing) return;
 
-        this.animationController.updateAnimation(instance, deltaTime);
+        this._animationController.updateAnimation(instance, deltaTime);
         this.dirtyInstances.add(instance.instanceId.id);
     }
 
-    private updateWorldMatrix(instance: InstanceData): void {
+    private updateWorldMatrixWithScale(instance: InstanceData): void {
         // Calculate world matrix from position, rotation, and scale
         const matrix = mat4.create();
         // Create translation matrix
@@ -258,70 +264,11 @@ export class InstanceManager implements IInstanceManager {
         instance.worldMatrix.set(matrix);
     }
 
-    private updateGPUBuffers(): void {
-        // Just clear dirty instances as we're not using instance buffers anymore
-        this.dirtyInstances.clear();
-    }
-
-    private updateModelBuffers(modelId: string, instances: InstanceData[]): void {
-        let bufferData = this.instanceBuffers.get(modelId);
-        if (!bufferData) {
-            const modelMatrix = this.gl.createBuffer();
-            const jointMatrices = this.gl.createBuffer();
-            
-            if (!modelMatrix || !jointMatrices) {
-                throw this.createError(
-                    ModelErrorCode.GL_ERROR,
-                    'Failed to create WebGL buffers'
-                );
-            }
-
-            bufferData = {
-                modelMatrix,
-                jointMatrices,
-                count: instances.length
-            };
-            this.instanceBuffers.set(modelId, bufferData);
-        }
-
-        // Update model matrix buffer
-        const modelMatrixData = new Float32Array(instances.length * 16);
-        for (let i = 0; i < instances.length; i++) {
-            modelMatrixData.set(instances[i].worldMatrix, i * 16);
-        }
-
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, bufferData.modelMatrix);
-        this.gl.bufferData(
-            this.gl.ARRAY_BUFFER,
-            modelMatrixData,
-            this.gl.DYNAMIC_DRAW
-        );
-
-        // Update joint matrices buffer if instances have skinning
-        if (instances.some(instance => instance.jointMatrices)) {
-            const jointMatrixData = new Float32Array(
-                instances.length * 
-                Math.max(...instances.map(i => i.jointMatrices?.length ?? 0))
-            );
-
-            let offset = 0;
-            for (const instance of instances) {
-                if (instance.jointMatrices) {
-                    jointMatrixData.set(instance.jointMatrices, offset);
-                    offset += instance.jointMatrices.length;
-                }
-            }
-
-            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, bufferData.jointMatrices);
-            this.gl.bufferData(
-                this.gl.ARRAY_BUFFER,
-                jointMatrixData,
-                this.gl.DYNAMIC_DRAW
-            );
-        }
-
-        // Unbind buffer
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, null);
+    private updateWorldMatrix(instance: InstanceData): void {
+        // Calculate world matrix from position, rotation, and scale
+       const srtMatrix = mat4.create();
+       mat4.fromRotationTranslationScale(srtMatrix, instance.transform.rotation, instance.transform.position, instance.transform.scale);
+       instance.worldMatrix.set(srtMatrix);
     }
 
     private renderModelInstances(
@@ -352,9 +299,11 @@ export class InstanceManager implements IInstanceManager {
             this.updateWorldMatrix(instance);
 
             // For each mesh in the model
-            for (const mesh of modelData.meshes) {
+            for (const renderableNode of modelData.renderableNodes) {
+                const node = renderableNode.node;
+                const mesh = renderableNode.modelMesh;
                 for (const primitive of mesh.primitives) {
-                    const material = modelData.materials[primitive.material];
+                    // const material = modelData.materials[primitive.material];
                     // const shader = material.program;
                     // TODO: move to GPUResourceManager
                     const shader = this.defaultShaderProgram;
@@ -371,24 +320,46 @@ export class InstanceManager implements IInstanceManager {
                     const projectionLoc = this.gl.getUniformLocation(shader, 'u_Projection');
                     const modelMatrixLoc = this.gl.getUniformLocation(shader, 'u_Model');
                     const normalMatrixLoc = this.gl.getUniformLocation(shader, 'u_NormalMatrix');
+                    const nodeMatrixLoc = this.gl.getUniformLocation(shader, 'u_NodeMatrix');
+                    const nodeBonesMatricesLoc = this.gl.getUniformLocation(shader, 'u_BoneMatrices');
+                    const useSkinningLoc = this.gl.getUniformLocation(shader, 'u_UseSkinning');
                     this.gl.uniformMatrix4fv(viewLoc, false, viewProjection.view);
                     this.gl.uniformMatrix4fv(projectionLoc, false, viewProjection.projection);
                     this.gl.uniformMatrix4fv(modelMatrixLoc, false, instance.worldMatrix);
+                    const animationState = instance.animationState;
+                    const animationMatrices = animationState.animationMatrices;
+                    const animationMatrix = animationMatrices.get(renderableNode.node);
+                    if (nodeMatrixLoc) {
+                        if (animationMatrix) {
+                            this.gl.uniformMatrix4fv(nodeMatrixLoc, false, animationMatrix);
+                        } else {
+                            this.gl.uniformMatrix4fv(nodeMatrixLoc, false, mat4.create());
+                        }
+                    }
+                    if (nodeBonesMatricesLoc) {
+                        const nodeBoneMatrices = animationState.boneMatrices.get(renderableNode.node);
+                        if (nodeBoneMatrices) {
+                            this.gl.uniformMatrix4fv(nodeBonesMatricesLoc, false, nodeBoneMatrices);
+                        }
+                    }
+                    if (useSkinningLoc) {
+                        this.gl.uniform1i(useSkinningLoc, renderableNode.useSkinning ? 1 : 0);
+                    }
 
                     // Calculate normal matrix (inverse transpose of the upper 3x3 model matrix)
                     const normalMatrix = mat3.create();
-                    mat3.normalFromMat4(normalMatrix, instance.worldMatrix);
-
-                    // Set the uniform
-                    this.gl.uniformMatrix3fv(normalMatrixLoc, false, normalMatrix);
-
-                    // 4. Handle skinning if present
-                    if (instance.jointMatrices && instance.jointMatrices.length > 0) {
-                        const jointMatricesLoc = this.gl.getUniformLocation(shader, 'u_JointMatrices');
-                        if (jointMatricesLoc) {
-                            this.gl.uniformMatrix4fv(jointMatricesLoc, false, instance.jointMatrices);
-                        }
+                    // Get nodeMatrix from instance from animation matrices
+                    const nodeMatrix = animationMatrices.get(renderableNode.node);
+                    if (nodeMatrix) {
+                        const nodeWorldMatrix = mat4.create();
+                        mat4.multiply(nodeWorldMatrix, nodeMatrix, instance.worldMatrix);
+                        mat3.normalFromMat4(normalMatrix, nodeWorldMatrix);
+                    } else {
+                        mat3.normalFromMat4(normalMatrix, instance.worldMatrix);
                     }
+
+                    this.gl.uniformMatrix3fv(normalMatrixLoc, false, normalMatrix);
+                   
                     // 5. Bind material properties (textures and uniforms)
                     this.gpuResources.bindShaderAndMaterial(this.defaultShaderProgram, primitive.material);
 
@@ -421,11 +392,13 @@ export class InstanceManager implements IInstanceManager {
         animationName: string,
         options?: AnimationOptions
     ): void {
-        instance.animationState.currentAnimation = animationName;
-        instance.animationState.currentTime = 0;
+        const animationState = instance.animationState;
+        animationState.currentAnimation = animationName;
+        animationState.currentTime = 0;
+        animationState.playing = true;
         if (options) {
-            instance.animationState.speed = options.speed ?? 1;
-            instance.animationState.loop = options.loop ?? true;
+            animationState.speed = options.speed ?? 1;
+            animationState.loop = options.loop ?? true;
         }
     }
 
@@ -455,5 +428,9 @@ export class InstanceManager implements IInstanceManager {
             instanceData.renderOptions.useNormalMap = enabled;
             this.dirtyInstances.add(instance.instanceId.id);
         }
+    }
+
+    get animationController(): AnimationController {
+        return this._animationController;
     }
 }
