@@ -49,7 +49,6 @@ export class ModelLoader implements IModelLoader {
 
             return {
                 id: modelId.id,
-                meshCount: modelData.meshes.length
             };
 
 /*        } catch (error: unknown) {
@@ -102,8 +101,6 @@ export class ModelLoader implements IModelLoader {
 
         // Process each component sequentially for easier debugging
         console.log('ModelLoader: processDocument', modelData);
-        await this.processMeshes(document, modelData);
-        console.log('ModelLoader: processMeshes', modelData);
         await this.processMaterials(document, modelData);
         console.log('ModelLoader: processMaterials', modelData);
         await this.processAnimations(document, modelData);
@@ -130,27 +127,6 @@ export class ModelLoader implements IModelLoader {
                 });
             }
         });
-    }
-
-    private async processMeshes(
-        document: Document, 
-        modelData: ModelData
-    ): Promise<void> {
-        const meshes = document.getRoot().listMeshes();
-        
-        for (const mesh of meshes) {
-            const modelMesh: ModelMesh = {
-                primitives: [],
-                name: mesh.getName() || '',
-            };
-
-            for (const primitive of mesh.listPrimitives()) {
-                const primData = await this.processPrimitive(primitive, document);
-                modelMesh.primitives.push(primData);
-            }
-
-            modelData.meshes.push(modelMesh);
-        }
     }
 
     private processMesh(mesh: Mesh, document: Document): ModelMesh {
@@ -411,17 +387,9 @@ export class ModelLoader implements IModelLoader {
 
     private cleanupModelResources(modelData: ModelData): void {
         // Should null-check resources before deletion
-        for (const mesh of modelData.meshes) {
-            for (const primitive of mesh.primitives) {
-                if (primitive.vao) this.gpuResources.deleteVertexArray(primitive.vao);
-                if (primitive.indexBuffer) this.gpuResources.deleteBuffer(primitive.indexBuffer);
-                
-                // Clean up attribute buffers
-                Object.values(primitive.attributes).forEach(buffer => {
-                    if (buffer) this.gpuResources.deleteBuffer(buffer);
-                });
-            }
-        }
+        // TODO: Implement
+        // - delete primitive buffers
+        // - delete vertex arrays
 
         // Clean up textures
         modelData.materialSystem.cleanup();
@@ -442,7 +410,6 @@ export class ModelLoader implements IModelLoader {
         );
         return {
             id: `model_${Math.abs(hash).toString(16)}`,
-            meshCount: 0  // Will be updated after processing
         };
     }
 

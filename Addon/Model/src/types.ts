@@ -28,7 +28,6 @@ export interface ISkinDeformer {
 // Core identification types
 export interface ModelId {
     readonly id: string;
-    readonly meshCount: number;
 }
 
 export interface InstanceId {

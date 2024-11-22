@@ -13677,7 +13677,6 @@ class ModelLoader {
         this.loadedModels.set(modelId.id, modelData);
         return {
             id: modelId.id,
-            meshCount: modelData.meshes.length
         };
         /*        } catch (error: unknown) {
                     const errorMessage = error instanceof Error
@@ -13723,8 +13722,8 @@ class ModelLoader {
         console.log('ModelLoader: processDocument');
         // Process each component sequentially for easier debugging
         console.log('ModelLoader: processDocument', modelData);
-        await this.processMeshes(document, modelData);
-        console.log('ModelLoader: processMeshes', modelData);
+        // await this.processMeshes(document, modelData);
+        // console.log('ModelLoader: processMeshes', modelData);
         await this.processMaterials(document, modelData);
         console.log('ModelLoader: processMaterials', modelData);
         await this.processAnimations(document, modelData);
@@ -13963,19 +13962,9 @@ class ModelLoader {
     }
     cleanupModelResources(modelData) {
         // Should null-check resources before deletion
-        for (const mesh of modelData.meshes) {
-            for (const primitive of mesh.primitives) {
-                if (primitive.vao)
-                    this.gpuResources.deleteVertexArray(primitive.vao);
-                if (primitive.indexBuffer)
-                    this.gpuResources.deleteBuffer(primitive.indexBuffer);
-                // Clean up attribute buffers
-                Object.values(primitive.attributes).forEach(buffer => {
-                    if (buffer)
-                        this.gpuResources.deleteBuffer(buffer);
-                });
-            }
-        }
+        // TODO: Implement
+        // - delete primitive buffers
+        // - delete vertex arrays
         // Clean up textures
         modelData.materialSystem.cleanup();
     }
@@ -13987,7 +13976,6 @@ class ModelLoader {
         const hash = Array.from(url).reduce((hash, char) => ((hash << 5) - hash) + char.charCodeAt(0), 0);
         return {
             id: `model_${Math.abs(hash).toString(16)}`,
-            meshCount: 0 // Will be updated after processing
         };
     }
     // Helper methods for buffer creation and texture loading...

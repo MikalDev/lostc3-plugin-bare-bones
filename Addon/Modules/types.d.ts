@@ -15,7 +15,6 @@ export interface ISkinDeformer {
 }
 export interface ModelId {
     readonly id: string;
-    readonly meshCount: number;
 }
 export interface InstanceId {
     readonly id: number;
