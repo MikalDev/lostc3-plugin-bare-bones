@@ -1,10 +1,9 @@
 import { ModelError, ModelErrorCode } from './errors';
-import { MaterialData, IGPUResourceManager, SAMPLER_TEXTURE_UNIT_MAP, Light } from './types';
+import { MaterialData, IGPUResourceManager, SAMPLER_TEXTURE_UNIT_MAP, Light, ModelData } from './types';
 
 export class GPUResourceManager implements IGPUResourceManager {
     private gl: WebGL2RenderingContext;
     private shaderSystem: ShaderSystem;
-    private materialSystem: MaterialSystem;
     
     // Track resources for cleanup
     private buffers: Set<WebGLBuffer> = new Set();
@@ -22,7 +21,6 @@ export class GPUResourceManager implements IGPUResourceManager {
     constructor(gl: WebGL2RenderingContext) {
         this.gl = gl;
         this.shaderSystem = new ShaderSystem(gl);
-        this.materialSystem = new MaterialSystem(gl, [], SAMPLER_TEXTURE_UNIT_MAP);
         
         // Initialize lights array with default values
         this.lights = Array(this.MAX_LIGHTS).fill(null).map(() => ({
@@ -414,14 +412,6 @@ export class GPUResourceManager implements IGPUResourceManager {
         return this.shaderSystem.createProgram(vertexShader, fragmentShader, 'default');
     }
 
-    public bindMaterial(materialIndex: number, shader: WebGLProgram): void {
-        this.materialSystem.bindMaterial(materialIndex, shader);
-    }
-
-    public addMaterial(material: MaterialData): void {
-        this.materialSystem.addMaterial(material);
-    }
-
     updateLight(index: number, lightParams: Partial<Light>): void {
         if (index >= this.MAX_LIGHTS) return;
         
@@ -503,11 +493,12 @@ export class GPUResourceManager implements IGPUResourceManager {
         }
     }
 
-    bindShaderAndMaterial(shader: WebGLProgram, materialIndex: number): void {
+    bindShaderAndMaterial(shader: WebGLProgram, materialIndex: number, modelData: ModelData): void {
+        const materialSystem = modelData.materialSystem;
         this.gl.useProgram(shader);
         this.updateCameraPositionUniforms(shader);
         this.updateLightUniforms(shader);
-        this.bindMaterial(materialIndex, shader);
+        materialSystem.bindMaterial(materialIndex, shader);
     }
 
     setLightDirection(index: number, direction: [number, number, number]): void {
@@ -537,96 +528,6 @@ export class GPUResourceManager implements IGPUResourceManager {
         this.lights[index].spotAngle = angle;
         this.lights[index].spotPenumbra = penumbra;
         this.dirtyLightParams = true;
-    }
-}
-
-// MaterialSystem for handling materials and shaders
-export class MaterialSystem {
-    private gl: WebGL2RenderingContext;
-    private materials: Map<number, MaterialData>;
-    private currentMaterial: number | null = null;
-    private samplerTextureUnitMap: Record<string, number>;
-
-    constructor(
-        gl: WebGL2RenderingContext,
-        materials: MaterialData[],
-        samplerTextureUnitMap: Record<string, number>
-    ) {
-        this.gl = gl;
-        this.materials = new Map(
-            materials.map((mat, index) => [index, mat])
-        );
-        this.samplerTextureUnitMap = samplerTextureUnitMap;
-    }
-
-    addMaterial(material: MaterialData): void {
-        this.materials.set(this.materials.size, material);
-    }
-
-    bindMaterial(materialIndex: number, shader: WebGLProgram): void {
-        if (this.currentMaterial === materialIndex) return;
-
-        const material = this.materials.get(materialIndex);
-        if (!material) return;
-
-        this.applyMaterial(material, shader);
-        this.currentMaterial = materialIndex;
-    }
-
-    private applyMaterial(material: MaterialData, shader: WebGLProgram): void {
-        // Bind textures to their fixed texture units based on sampler names
-        material.textures.forEach((texture, samplerName) => {
-            const textureUnit = this.samplerTextureUnitMap[samplerName];
-            if (textureUnit === undefined) {
-                console.warn(`No texture unit defined for sampler '${samplerName}'.`);
-                return;
-            }
-
-            const location = this.gl.getUniformLocation(shader, samplerName);
-            if (location === null) {
-                console.warn(`Uniform sampler '${samplerName}' not found in shader.`);
-                return;
-            }
-
-            this.gl.activeTexture(this.gl.TEXTURE0 + textureUnit);
-            this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
-            this.gl.uniform1i(location, textureUnit);
-            // console.log(`Binding texture to unit ${textureUnit} for sampler '${samplerName}'`);
-        });
-
-        // Set material uniforms
-        if (material.uniforms) {
-            for (const [name, value] of Object.entries(material.uniforms)) {
-                const location = this.gl.getUniformLocation(shader, name);
-                if (location === null) continue;
-
-                // Handle different uniform types
-                if (Array.isArray(value)) {
-                    switch (value.length) {
-                        case 2:
-                            this.gl.uniform2fv(location, value);
-                            break;
-                        case 3:
-                            this.gl.uniform3fv(location, value);
-                            break;
-                        case 4:
-                            this.gl.uniform4fv(location, value);
-                            break;
-                        case 16:
-                            this.gl.uniformMatrix4fv(location, false, value);
-                            break;
-                        default:
-                            console.warn(`Unhandled uniform array length for '${name}': ${value.length}`);
-                    }
-                } else if (typeof value === 'number') {
-                    this.gl.uniform1f(location, value);
-                } else if (typeof value === 'boolean') {
-                    this.gl.uniform1i(location, value ? 1 : 0);
-                } else {
-                    console.warn(`Unhandled uniform type for '${name}': ${typeof value}`);
-                }
-            }
-        }
     }
 }
 

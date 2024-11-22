@@ -37,6 +37,10 @@ export class Model implements IModel {
         this._manager.stopModelAnimation(this);
     }
 
+    public setBindPose(): void {
+        this._manager.setModelBindPose(this);
+    }
+
     // Additional convenience methods
     public setQuaternion(x: number, y: number, z: number, w: number): void {
         const quat = new Float32Array([x, y, z, w]);

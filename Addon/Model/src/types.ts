@@ -5,6 +5,7 @@ import { Model } from './Model';
 import { Node, Animation, Scene } from '@gltf-transform/core';
 
 import { mat4, vec3, vec4 } from 'gl-matrix';
+import { MaterialSystem } from './MaterialSystem';
 
 export const MAX_BONES = 64;
 
@@ -133,6 +134,7 @@ export interface IInstanceManager {
     stopModelAnimation(instance: Model): void;
     setModelNormalMapEnabled(enabled: boolean, instance: Model): void;
     updateModelAnimation(instance: Model, deltaTime: number): void;
+    setModelBindPose(instance: Model): void;
 }
 
 export interface IModel {
@@ -143,6 +145,7 @@ export interface IModel {
     playAnimation(name: string, options?: AnimationOptions): void;
     stopAnimation(): void;
     setNormalMapEnabled(enabled: boolean): void;
+    setBindPose(): void;
 }
 
 export enum TextureType {
@@ -166,6 +169,7 @@ export interface ModelData {
         modelMesh: ModelMesh;
         useSkinning: boolean;
     }[];
+    materialSystem: MaterialSystem;
 }
 
 export interface JointData {
@@ -195,8 +199,6 @@ export interface IGPUResourceManager {
     getShader(modelId: string): WebGLProgram | null;
     getDefaultShader(): WebGLProgram;
     createIndexBuffer(data: BufferSource, usage: BufferUsage): WebGLBuffer;
-    bindMaterial(materialIndex: number, shader: WebGLProgram): void;
-    addMaterial(material: MaterialData): void;
     setNormalMapEnabled(program: WebGLProgram, enabled: boolean): void;
     setLightPosition(program: WebGLProgram, lightPosition: [number, number, number]): void;
     updateLight(index: number, lightParams: Partial<Light>): void;
@@ -205,7 +207,7 @@ export interface IGPUResourceManager {
     setLightColor(index: number, color: [number, number, number]): void;
     setLightIntensity(index: number, intensity: number): void;
     setSpotLightParams(index: number, angle: number, penumbra: number): void;
-    bindShaderAndMaterial(shader: WebGLProgram, materialIndex: number): void;
+    bindShaderAndMaterial(shader: WebGLProgram, materialIndex: number, modelData: ModelData): void;
 }
 
 // Add this type definition

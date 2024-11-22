@@ -4,6 +4,7 @@ import { AttributeSemantic, ModelId, ModelData, IGPUResourceManager, MeshPrimiti
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { DracoDecoderModule } from './draco/draco_decoder_gltf';
 import { mat4} from 'gl-matrix';
+import { MaterialSystem } from './MaterialSystem';
 
 export class ModelLoader implements IModelLoader {
     public gl: WebGL2RenderingContext;
@@ -84,7 +85,8 @@ export class ModelLoader implements IModelLoader {
             jointData: [],
             rootNode: document.getRoot().listScenes()[0].listChildren()[0],
             scene: document.getRoot().listScenes()[0],
-            renderableNodes: []
+            renderableNodes: [],
+            materialSystem: new MaterialSystem(this.gl, SAMPLER_TEXTURE_UNIT_MAP)
         };
 
         /*
@@ -289,7 +291,7 @@ export class ModelLoader implements IModelLoader {
             };
 
             // Iterate over the SAMPLER_TEXTURE_UNIT_MAP to assign textures
-            for (const [samplerName, textureUnit] of Object.entries(SAMPLER_TEXTURE_UNIT_MAP)) {
+            for (const [samplerName] of Object.entries(SAMPLER_TEXTURE_UNIT_MAP)) {
                 let texturePromise: Promise<WebGLTexture> | null = null;
                 
                 switch (samplerName) {
@@ -338,9 +340,7 @@ export class ModelLoader implements IModelLoader {
                     materialData.textures.set(samplerName, texture);
                 }
             }
-
-            modelData.materials.push(materialData);
-            this.gpuResources.addMaterial(materialData);
+            modelData.materialSystem.addMaterial(materialData);
         }
     }
 
@@ -424,14 +424,7 @@ export class ModelLoader implements IModelLoader {
         }
 
         // Clean up textures
-        for (const material of modelData.materials) {
-            // Clean up all texture types
-            for (const [_, texture] of material.textures) {
-                if (texture) {
-                    this.gpuResources.deleteTexture(texture);
-                }
-            }
-        }
+        modelData.materialSystem.cleanup();
     }
 
     private createModelError(

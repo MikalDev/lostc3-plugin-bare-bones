@@ -4,6 +4,8 @@ export declare class AnimationController {
     private modelLoader;
     constructor(modelLoader: ModelLoader);
     private updateNodeLocalTransforms;
+    setBindPose(instance: InstanceData): void;
+    private updateAnimationMatricesFromTransforms;
     updateAnimation(instance: InstanceData, deltaTime: number): void;
     private updateNodeHierarchyTransforms;
     private maxDuration;

@@ -1,8 +1,7 @@
-import { MaterialData, IGPUResourceManager, Light } from './types';
+import { IGPUResourceManager, Light, ModelData } from './types';
 export declare class GPUResourceManager implements IGPUResourceManager {
     private gl;
     private shaderSystem;
-    private materialSystem;
     private buffers;
     private textures;
     private vaos;
@@ -26,8 +25,6 @@ export declare class GPUResourceManager implements IGPUResourceManager {
     setNormalMapEnabled(shader: WebGLProgram, enabled: boolean): void;
     setLightPosition(shader: WebGLProgram, lightPosition: [number, number, number]): void;
     getDefaultShader(): WebGLProgram;
-    bindMaterial(materialIndex: number, shader: WebGLProgram): void;
-    addMaterial(material: MaterialData): void;
     updateLight(index: number, lightParams: Partial<Light>): void;
     updateCameraPosition(position: [number, number, number]): void;
     setLightEnabled(index: number, enabled: boolean): void;
@@ -36,21 +33,11 @@ export declare class GPUResourceManager implements IGPUResourceManager {
     private updateAllLightUniforms;
     private updateLightEnableStates;
     private getLightTypeValue;
-    bindShaderAndMaterial(shader: WebGLProgram, materialIndex: number): void;
+    bindShaderAndMaterial(shader: WebGLProgram, materialIndex: number, modelData: ModelData): void;
     setLightDirection(index: number, direction: [number, number, number]): void;
     setLightColor(index: number, color: [number, number, number]): void;
     setLightIntensity(index: number, intensity: number): void;
     setSpotLightParams(index: number, angle: number, penumbra: number): void;
-}
-export declare class MaterialSystem {
-    private gl;
-    private materials;
-    private currentMaterial;
-    private samplerTextureUnitMap;
-    constructor(gl: WebGL2RenderingContext, materials: MaterialData[], samplerTextureUnitMap: Record<string, number>);
-    addMaterial(material: MaterialData): void;
-    bindMaterial(materialIndex: number, shader: WebGLProgram): void;
-    private applyMaterial;
 }
 export declare class ShaderSystem {
     private gl;

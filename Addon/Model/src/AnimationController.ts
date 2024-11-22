@@ -1,6 +1,6 @@
 // src/AnimationController.ts
 import { ModelLoader } from './ModelLoader';
-import { InstanceData, AnimationOptions, AnimationState, ModelData } from './types';
+import { InstanceData, AnimationOptions, AnimationState } from './types';
 import { mat4, quat, vec3, vec4 } from 'gl-matrix';
 import { Animation, Node, TypedArray } from '@gltf-transform/core';
 
@@ -34,6 +34,27 @@ export class AnimationController {
                 scale = node.getScale() || vec3.create();
             }
             nodeTransforms.set(node, { translation, rotation, scale });
+        });
+    }
+
+    public setBindPose(instance: InstanceData): void {
+        this.updateNodeLocalTransforms(instance);
+        this.updateAnimationMatricesFromTransforms(instance);
+        this.updateNodeHierarchyTransforms(instance);
+    }
+
+    private updateAnimationMatricesFromTransforms(instance: InstanceData): void {
+        const animationMatrices = instance.animationState.animationMatrices;
+        const nodeTransforms = instance.animationState.animationNodeTransforms;
+        const scene = this.modelLoader.getModelData(instance.instanceId.modelId)?.scene;
+        if (!scene) return;
+        scene.traverse(node => {
+            const transform = nodeTransforms.get(node);
+            if (transform) {
+                const animationMatrix = mat4.create();
+                mat4.fromRotationTranslationScale(animationMatrix, transform.rotation, transform.translation, transform.scale);
+                animationMatrices.set(node, animationMatrix);
+            }
         });
     }
 

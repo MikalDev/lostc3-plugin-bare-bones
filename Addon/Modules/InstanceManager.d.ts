@@ -23,7 +23,7 @@ export declare class InstanceManager implements IInstanceManager {
         view: mat4;
         projection: mat4;
     };
-    createModel(modelId: string): Model;
+    createModel(modelId: string, animationName?: string): Model;
     deleteModel(instanceId: number): void;
     updateInstance(instanceId: number, deltaTime: number): void;
     render(viewProjection: {
@@ -33,6 +33,7 @@ export declare class InstanceManager implements IInstanceManager {
     setModelPosition(x: number, y: number, z: number, instance: Model): void;
     setModelRotation(quaternion: Float32Array, instance: Model): void;
     setModelScale(x: number, y: number, z: number, instance: Model): void;
+    setModelBindPose(instance: Model): void;
     playModelAnimation(animationName: string, instance: Model, options?: AnimationOptions): void;
     updateModelAnimation(instance: Model, deltaTime: number): void;
     stopModelAnimation(instance: Model): void;

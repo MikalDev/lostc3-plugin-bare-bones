@@ -94,7 +94,7 @@ export class InstanceManager implements IInstanceManager {
         return { view: viewMatrix, projection: projectionMatrix };
     }
 
-    createModel(modelId: string): Model {
+    createModel(modelId: string, animationName?: string): Model {
         // Verify model exists
         const modelData = this.modelLoader.getModelData(modelId);
         if (!modelData) {
@@ -110,6 +110,15 @@ export class InstanceManager implements IInstanceManager {
             modelId
         };
 
+            if (modelData.animations.size > 0) {
+                if (!animationName || !modelData.animations.has(animationName)) {
+                    const firstAnimation = modelData.animations.keys().next().value;
+                animationName = firstAnimation;
+            }
+        } else {
+            animationName = undefined;
+        }
+
         const instanceData: InstanceData = {
             instanceId,
             transform: {
@@ -121,7 +130,7 @@ export class InstanceManager implements IInstanceManager {
                 useNormalMap: false
             },
             animationState: {
-                currentAnimation: null,
+                currentAnimation: animationName ?? null,
                 currentTime: 0,
                 speed: 1,
                 loop: true,
@@ -135,6 +144,9 @@ export class InstanceManager implements IInstanceManager {
 
         // Store instance
         this.instances.set(instanceId.id, instanceData);
+
+        // Animate instance for 0 seconds to set bind pose
+        this.updateAnimation(instanceData, 0);
         
         // Add to model group
         this.addToModelGroup(instanceId);
@@ -190,6 +202,13 @@ export class InstanceManager implements IInstanceManager {
         if (instanceData) {
             instanceData.transform.scale.set([x, y, z]);
             this.dirtyInstances.add(instance.instanceId.id);
+        }
+    }
+
+    public setModelBindPose(instance: Model): void {
+        const instanceData = this.instances.get(instance.instanceId.id);
+        if (instanceData) {
+            this._animationController.setBindPose(instanceData);
         }
     }
 
@@ -300,7 +319,6 @@ export class InstanceManager implements IInstanceManager {
 
             // For each mesh in the model
             for (const renderableNode of modelData.renderableNodes) {
-                const node = renderableNode.node;
                 const mesh = renderableNode.modelMesh;
                 for (const primitive of mesh.primitives) {
                     // const material = modelData.materials[primitive.material];
@@ -336,14 +354,17 @@ export class InstanceManager implements IInstanceManager {
                             this.gl.uniformMatrix4fv(nodeMatrixLoc, false, mat4.create());
                         }
                     }
+
+                    let noBoneMatrices = true;
                     if (nodeBonesMatricesLoc) {
                         const nodeBoneMatrices = animationState.boneMatrices.get(renderableNode.node);
-                        if (nodeBoneMatrices) {
+                        if (nodeBoneMatrices && nodeBoneMatrices.length > 0) {
                             this.gl.uniformMatrix4fv(nodeBonesMatricesLoc, false, nodeBoneMatrices);
+                            noBoneMatrices = false;
                         }
                     }
                     if (useSkinningLoc) {
-                        this.gl.uniform1i(useSkinningLoc, renderableNode.useSkinning ? 1 : 0);
+                        this.gl.uniform1i(useSkinningLoc, renderableNode.useSkinning && !noBoneMatrices ? 1 : 0);
                     }
 
                     // Calculate normal matrix (inverse transpose of the upper 3x3 model matrix)
@@ -361,7 +382,7 @@ export class InstanceManager implements IInstanceManager {
                     this.gl.uniformMatrix3fv(normalMatrixLoc, false, normalMatrix);
                    
                     // 5. Bind material properties (textures and uniforms)
-                    this.gpuResources.bindShaderAndMaterial(this.defaultShaderProgram, primitive.material);
+                    this.gpuResources.bindShaderAndMaterial(this.defaultShaderProgram, primitive.material, modelData);
 
                     // 6. Draw
                     if (primitive.indexBuffer) {

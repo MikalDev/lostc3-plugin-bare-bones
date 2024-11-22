@@ -13559,6 +13559,92 @@ var normalize = normalize$1;
   };
 })();
 
+// MaterialSystem for handling materials and shaders
+class MaterialSystem {
+    constructor(gl, samplerTextureUnitMap) {
+        this.currentMaterial = null;
+        this.gl = gl;
+        this.materials = new Map();
+        this.samplerTextureUnitMap = samplerTextureUnitMap;
+    }
+    cleanup() {
+        this.materials.forEach((material) => {
+            material.textures.forEach((texture) => {
+                if (texture)
+                    this.gl.deleteTexture(texture);
+            });
+        });
+        this.materials.clear();
+    }
+    addMaterial(material) {
+        this.materials.set(this.materials.size, material);
+    }
+    bindMaterial(materialIndex, shader) {
+        // TODO: move this check to GPUResourceManager (needs to check if model && material are the same, not just material index)
+        // if (this.currentMaterial === materialIndex) return;
+        const material = this.materials.get(materialIndex);
+        if (!material)
+            return;
+        this.applyMaterial(material, shader);
+        this.currentMaterial = materialIndex;
+    }
+    applyMaterial(material, shader) {
+        // Bind textures to their fixed texture units based on sampler names
+        material.textures.forEach((texture, samplerName) => {
+            const textureUnit = this.samplerTextureUnitMap[samplerName];
+            if (textureUnit === undefined) {
+                console.warn(`No texture unit defined for sampler '${samplerName}'.`);
+                return;
+            }
+            const location = this.gl.getUniformLocation(shader, samplerName);
+            if (location === null) {
+                console.warn(`Uniform sampler '${samplerName}' not found in shader.`);
+                return;
+            }
+            this.gl.activeTexture(this.gl.TEXTURE0 + textureUnit);
+            this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
+            this.gl.uniform1i(location, textureUnit);
+            // console.log(`Binding texture to unit ${textureUnit} for sampler '${samplerName}'`);
+        });
+        // Set material uniforms
+        if (material.uniforms) {
+            for (const [name, value] of Object.entries(material.uniforms)) {
+                const location = this.gl.getUniformLocation(shader, name);
+                if (location === null)
+                    continue;
+                // Handle different uniform types
+                if (Array.isArray(value)) {
+                    switch (value.length) {
+                        case 2:
+                            this.gl.uniform2fv(location, value);
+                            break;
+                        case 3:
+                            this.gl.uniform3fv(location, value);
+                            break;
+                        case 4:
+                            this.gl.uniform4fv(location, value);
+                            break;
+                        case 16:
+                            this.gl.uniformMatrix4fv(location, false, value);
+                            break;
+                        default:
+                            console.warn(`Unhandled uniform array length for '${name}': ${value.length}`);
+                    }
+                }
+                else if (typeof value === 'number') {
+                    this.gl.uniform1f(location, value);
+                }
+                else if (typeof value === 'boolean') {
+                    this.gl.uniform1i(location, value ? 1 : 0);
+                }
+                else {
+                    console.warn(`Unhandled uniform type for '${name}': ${typeof value}`);
+                }
+            }
+        }
+    }
+}
+
 class ModelLoader {
     constructor(gl, gpuResources) {
         this.loadedModels = new Map();
@@ -13623,7 +13709,8 @@ class ModelLoader {
             jointData: [],
             rootNode: document.getRoot().listScenes()[0].listChildren()[0],
             scene: document.getRoot().listScenes()[0],
-            renderableNodes: []
+            renderableNodes: [],
+            materialSystem: new MaterialSystem(this.gl, SAMPLER_TEXTURE_UNIT_MAP)
         };
         /*
         await Promise.all([
@@ -13781,7 +13868,7 @@ class ModelLoader {
                 }
             };
             // Iterate over the SAMPLER_TEXTURE_UNIT_MAP to assign textures
-            for (const [samplerName, textureUnit] of Object.entries(SAMPLER_TEXTURE_UNIT_MAP)) {
+            for (const [samplerName] of Object.entries(SAMPLER_TEXTURE_UNIT_MAP)) {
                 let texturePromise = null;
                 switch (samplerName) {
                     case 'u_BaseColorSampler':
@@ -13828,8 +13915,7 @@ class ModelLoader {
                     materialData.textures.set(samplerName, texture);
                 }
             }
-            modelData.materials.push(materialData);
-            this.gpuResources.addMaterial(materialData);
+            modelData.materialSystem.addMaterial(materialData);
         }
     }
     processAnimations(document, modelData) {
@@ -13891,14 +13977,7 @@ class ModelLoader {
             }
         }
         // Clean up textures
-        for (const material of modelData.materials) {
-            // Clean up all texture types
-            for (const [_, texture] of material.textures) {
-                if (texture) {
-                    this.gpuResources.deleteTexture(texture);
-                }
-            }
-        }
+        modelData.materialSystem.cleanup();
     }
     createModelError(code, message) {
         return createModelError(code, message);
@@ -13999,7 +14078,6 @@ class GPUResourceManager {
         this.dirtyCameraPosition = false;
         this.gl = gl;
         this.shaderSystem = new ShaderSystem(gl);
-        this.materialSystem = new MaterialSystem(gl, [], SAMPLER_TEXTURE_UNIT_MAP);
         // Initialize lights array with default values
         this.lights = Array(this.MAX_LIGHTS).fill(null).map(() => ({
             type: 'point',
@@ -14348,12 +14426,6 @@ class GPUResourceManager {
         }`;
         return this.shaderSystem.createProgram(vertexShader, fragmentShader, 'default');
     }
-    bindMaterial(materialIndex, shader) {
-        this.materialSystem.bindMaterial(materialIndex, shader);
-    }
-    addMaterial(material) {
-        this.materialSystem.addMaterial(material);
-    }
     updateLight(index, lightParams) {
         if (index >= this.MAX_LIGHTS)
             return;
@@ -14426,11 +14498,12 @@ class GPUResourceManager {
             default: return 0;
         }
     }
-    bindShaderAndMaterial(shader, materialIndex) {
+    bindShaderAndMaterial(shader, materialIndex, modelData) {
+        const materialSystem = modelData.materialSystem;
         this.gl.useProgram(shader);
         this.updateCameraPositionUniforms(shader);
         this.updateLightUniforms(shader);
-        this.bindMaterial(materialIndex, shader);
+        materialSystem.bindMaterial(materialIndex, shader);
     }
     setLightDirection(index, direction) {
         if (index >= this.MAX_LIGHTS)
@@ -14458,82 +14531,6 @@ class GPUResourceManager {
         this.lights[index].spotAngle = angle;
         this.lights[index].spotPenumbra = penumbra;
         this.dirtyLightParams = true;
-    }
-}
-// MaterialSystem for handling materials and shaders
-class MaterialSystem {
-    constructor(gl, materials, samplerTextureUnitMap) {
-        this.currentMaterial = null;
-        this.gl = gl;
-        this.materials = new Map(materials.map((mat, index) => [index, mat]));
-        this.samplerTextureUnitMap = samplerTextureUnitMap;
-    }
-    addMaterial(material) {
-        this.materials.set(this.materials.size, material);
-    }
-    bindMaterial(materialIndex, shader) {
-        if (this.currentMaterial === materialIndex)
-            return;
-        const material = this.materials.get(materialIndex);
-        if (!material)
-            return;
-        this.applyMaterial(material, shader);
-        this.currentMaterial = materialIndex;
-    }
-    applyMaterial(material, shader) {
-        // Bind textures to their fixed texture units based on sampler names
-        material.textures.forEach((texture, samplerName) => {
-            const textureUnit = this.samplerTextureUnitMap[samplerName];
-            if (textureUnit === undefined) {
-                console.warn(`No texture unit defined for sampler '${samplerName}'.`);
-                return;
-            }
-            const location = this.gl.getUniformLocation(shader, samplerName);
-            if (location === null) {
-                console.warn(`Uniform sampler '${samplerName}' not found in shader.`);
-                return;
-            }
-            this.gl.activeTexture(this.gl.TEXTURE0 + textureUnit);
-            this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
-            this.gl.uniform1i(location, textureUnit);
-            // console.log(`Binding texture to unit ${textureUnit} for sampler '${samplerName}'`);
-        });
-        // Set material uniforms
-        if (material.uniforms) {
-            for (const [name, value] of Object.entries(material.uniforms)) {
-                const location = this.gl.getUniformLocation(shader, name);
-                if (location === null)
-                    continue;
-                // Handle different uniform types
-                if (Array.isArray(value)) {
-                    switch (value.length) {
-                        case 2:
-                            this.gl.uniform2fv(location, value);
-                            break;
-                        case 3:
-                            this.gl.uniform3fv(location, value);
-                            break;
-                        case 4:
-                            this.gl.uniform4fv(location, value);
-                            break;
-                        case 16:
-                            this.gl.uniformMatrix4fv(location, false, value);
-                            break;
-                        default:
-                            console.warn(`Unhandled uniform array length for '${name}': ${value.length}`);
-                    }
-                }
-                else if (typeof value === 'number') {
-                    this.gl.uniform1f(location, value);
-                }
-                else if (typeof value === 'boolean') {
-                    this.gl.uniform1i(location, value ? 1 : 0);
-                }
-                else {
-                    console.warn(`Unhandled uniform type for '${name}': ${typeof value}`);
-                }
-            }
-        }
     }
 }
 // ShaderSystem for managing shaders and programs
@@ -14636,6 +14633,9 @@ class Model {
     stopAnimation() {
         this._manager.stopModelAnimation(this);
     }
+    setBindPose() {
+        this._manager.setModelBindPose(this);
+    }
     // Additional convenience methods
     setQuaternion(x, y, z, w) {
         const quat = new Float32Array([x, y, z, w]);
@@ -14676,6 +14676,27 @@ class AnimationController {
                 scale = node.getScale() || create$2();
             }
             nodeTransforms.set(node, { translation, rotation, scale });
+        });
+    }
+    setBindPose(instance) {
+        this.updateNodeLocalTransforms(instance);
+        this.updateAnimationMatricesFromTransforms(instance);
+        this.updateNodeHierarchyTransforms(instance);
+    }
+    updateAnimationMatricesFromTransforms(instance) {
+        var _a;
+        const animationMatrices = instance.animationState.animationMatrices;
+        const nodeTransforms = instance.animationState.animationNodeTransforms;
+        const scene = (_a = this.modelLoader.getModelData(instance.instanceId.modelId)) === null || _a === void 0 ? void 0 : _a.scene;
+        if (!scene)
+            return;
+        scene.traverse(node => {
+            const transform = nodeTransforms.get(node);
+            if (transform) {
+                const animationMatrix = create$3();
+                fromRotationTranslationScale(animationMatrix, transform.rotation, transform.translation, transform.scale);
+                animationMatrices.set(node, animationMatrix);
+            }
         });
     }
     updateAnimation(instance, deltaTime) {
@@ -14991,7 +15012,7 @@ class InstanceManager {
         lookAt(viewMatrix, eye, center, up);
         return { view: viewMatrix, projection: projectionMatrix };
     }
-    createModel(modelId) {
+    createModel(modelId, animationName) {
         // Verify model exists
         const modelData = this.modelLoader.getModelData(modelId);
         if (!modelData) {
@@ -15002,6 +15023,15 @@ class InstanceManager {
             id: this.nextInstanceId++,
             modelId
         };
+        if (modelData.animations.size > 0) {
+            if (!animationName || !modelData.animations.has(animationName)) {
+                const firstAnimation = modelData.animations.keys().next().value;
+                animationName = firstAnimation;
+            }
+        }
+        else {
+            animationName = undefined;
+        }
         const instanceData = {
             instanceId,
             transform: {
@@ -15013,7 +15043,7 @@ class InstanceManager {
                 useNormalMap: false
             },
             animationState: {
-                currentAnimation: null,
+                currentAnimation: animationName !== null && animationName !== void 0 ? animationName : null,
                 currentTime: 0,
                 speed: 1,
                 loop: true,
@@ -15026,6 +15056,8 @@ class InstanceManager {
         };
         // Store instance
         this.instances.set(instanceId.id, instanceData);
+        // Animate instance for 0 seconds to set bind pose
+        this.updateAnimation(instanceData, 0);
         // Add to model group
         this.addToModelGroup(instanceId);
         // Create Model interface
@@ -15072,6 +15104,12 @@ class InstanceManager {
         if (instanceData) {
             instanceData.transform.scale.set([x, y, z]);
             this.dirtyInstances.add(instance.instanceId.id);
+        }
+    }
+    setModelBindPose(instance) {
+        const instanceData = this.instances.get(instance.instanceId.id);
+        if (instanceData) {
+            this._animationController.setBindPose(instanceData);
         }
     }
     playModelAnimation(animationName, instance, options) {
@@ -15156,7 +15194,6 @@ class InstanceManager {
             this.updateWorldMatrix(instance);
             // For each mesh in the model
             for (const renderableNode of modelData.renderableNodes) {
-                renderableNode.node;
                 const mesh = renderableNode.modelMesh;
                 for (const primitive of mesh.primitives) {
                     // const material = modelData.materials[primitive.material];
@@ -15190,14 +15227,16 @@ class InstanceManager {
                             this.gl.uniformMatrix4fv(nodeMatrixLoc, false, create$3());
                         }
                     }
+                    let noBoneMatrices = true;
                     if (nodeBonesMatricesLoc) {
                         const nodeBoneMatrices = animationState.boneMatrices.get(renderableNode.node);
-                        if (nodeBoneMatrices) {
+                        if (nodeBoneMatrices && nodeBoneMatrices.length > 0) {
                             this.gl.uniformMatrix4fv(nodeBonesMatricesLoc, false, nodeBoneMatrices);
+                            noBoneMatrices = false;
                         }
                     }
                     if (useSkinningLoc) {
-                        this.gl.uniform1i(useSkinningLoc, renderableNode.useSkinning ? 1 : 0);
+                        this.gl.uniform1i(useSkinningLoc, renderableNode.useSkinning && !noBoneMatrices ? 1 : 0);
                     }
                     // Calculate normal matrix (inverse transpose of the upper 3x3 model matrix)
                     const normalMatrix = create$4();
@@ -15213,7 +15252,7 @@ class InstanceManager {
                     }
                     this.gl.uniformMatrix3fv(normalMatrixLoc, false, normalMatrix);
                     // 5. Bind material properties (textures and uniforms)
-                    this.gpuResources.bindShaderAndMaterial(this.defaultShaderProgram, primitive.material);
+                    this.gpuResources.bindShaderAndMaterial(this.defaultShaderProgram, primitive.material, modelData);
                     // 6. Draw
                     if (primitive.indexBuffer) {
                         this.gl.drawElements(this.gl.TRIANGLES, primitive.indexCount, primitive.indexType, 0);

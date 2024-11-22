@@ -10,6 +10,7 @@ export declare class Model implements IModel {
     playAnimation(animationName: string, options?: AnimationOptions): void;
     updateAnimation(deltaTime: number): void;
     stopAnimation(): void;
+    setBindPose(): void;
     setQuaternion(x: number, y: number, z: number, w: number): void;
     get manager(): IInstanceManager;
 }

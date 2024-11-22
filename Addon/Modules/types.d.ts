@@ -1,6 +1,7 @@
 import { Model } from './Model';
 import { Node, Animation, Scene } from '@gltf-transform/core';
 import { mat4, vec3, vec4 } from 'gl-matrix';
+import { MaterialSystem } from './MaterialSystem';
 export declare const MAX_BONES = 64;
 export interface IAnimationTarget {
     updateTransform(path: 'translation' | 'rotation' | 'scale', values: Float32Array): void;
@@ -93,6 +94,7 @@ export interface IInstanceManager {
     stopModelAnimation(instance: Model): void;
     setModelNormalMapEnabled(enabled: boolean, instance: Model): void;
     updateModelAnimation(instance: Model, deltaTime: number): void;
+    setModelBindPose(instance: Model): void;
 }
 export interface IModel {
     readonly instanceId: InstanceId;
@@ -102,6 +104,7 @@ export interface IModel {
     playAnimation(name: string, options?: AnimationOptions): void;
     stopAnimation(): void;
     setNormalMapEnabled(enabled: boolean): void;
+    setBindPose(): void;
 }
 export declare enum TextureType {
     BaseColor = 0,
@@ -122,6 +125,7 @@ export interface ModelData {
         modelMesh: ModelMesh;
         useSkinning: boolean;
     }[];
+    materialSystem: MaterialSystem;
 }
 export interface JointData {
     index: number;
@@ -146,8 +150,6 @@ export interface IGPUResourceManager {
     getShader(modelId: string): WebGLProgram | null;
     getDefaultShader(): WebGLProgram;
     createIndexBuffer(data: BufferSource, usage: BufferUsage): WebGLBuffer;
-    bindMaterial(materialIndex: number, shader: WebGLProgram): void;
-    addMaterial(material: MaterialData): void;
     setNormalMapEnabled(program: WebGLProgram, enabled: boolean): void;
     setLightPosition(program: WebGLProgram, lightPosition: [number, number, number]): void;
     updateLight(index: number, lightParams: Partial<Light>): void;
@@ -156,7 +158,7 @@ export interface IGPUResourceManager {
     setLightColor(index: number, color: [number, number, number]): void;
     setLightIntensity(index: number, intensity: number): void;
     setSpotLightParams(index: number, angle: number, penumbra: number): void;
-    bindShaderAndMaterial(shader: WebGLProgram, materialIndex: number): void;
+    bindShaderAndMaterial(shader: WebGLProgram, materialIndex: number, modelData: ModelData): void;
 }
 export type AttributeSemantic = 'POSITION' | 'NORMAL' | 'TEXCOORD_0' | 'JOINTS_0' | 'WEIGHTS_0';
 export interface LightBase {

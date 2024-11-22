@@ -13,6 +13,9 @@ export * from './InstanceManager';
 /// <reference path="./main.d.ts" />
 export * from './main';
 
+/// <reference path="./MaterialSystem.d.ts" />
+export * from './MaterialSystem';
+
 /// <reference path="./Model.d.ts" />
 export * from './Model';
 

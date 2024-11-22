@@ -18,7 +18,7 @@
 
         // Get WebGL context
         const canvas = document.getElementById('glCanvas');
-        if (canvas) canvas.style.backgroundColor = '#F0F010';
+        if (canvas) canvas.style.backgroundColor = '#101020';
         // @ts-ignore
         const gl = canvas.getContext('webgl2');
         
@@ -40,10 +40,10 @@
         // const modelPath = './test/assets/RiggedSimple.glb';
         // const modelPath = './test/assets/BoxAnimated.glb';
         const modelPath = './test/assets/cleric.gltf';
-        const modelPath2 = './test/assets/animated-cube.glb';
-        // const modelPath = './test/assets/c-bio-t.glb';
+        const modelPath3 = './test/assets/animated-cube.glb';
+        const modelPath4 = './test/assets/c-bio-t.glb';
         // const modelPath = './test/assets/c-bio.glb';
-        // const modelPath = './test/assets/c-bug.glb';
+        const modelPath5 = './test/assets/c-bug-t.glb';
         // const modelPath = './test/assets/CompareNormal.glb';
         // @ts-ignore
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -51,27 +51,41 @@
         const model = await modelLoader.loadModel(modelPath);
         console.info('Model loaded successfully:', model.id, modelPath);
         // @ts-ignore
-        const model3 = await modelLoader.loadModel(modelPath2);
-        console.info('Model3 loaded successfully:', model3.id, modelPath2);
+        const model3 = await modelLoader.loadModel(modelPath3);
+        console.info('Model3 loaded successfully:', model3.id, modelPath3);
+        // @ts-ignore
+        const model4 = await modelLoader.loadModel(modelPath4);
+        console.info('Model4 loaded successfully:', model4.id, modelPath4);
+        // @ts-ignore
+        const model5 = await modelLoader.loadModel(modelPath5);
+        console.info('Model5 loaded successfully:', model5.id, modelPath5);
         
         // Create instance
         const instance = instanceManager.createModel(model.id);
         const instance2 = instanceManager.createModel(model.id);
         const instance3 = instanceManager.createModel(model3.id);
-
+        const instance4 = instanceManager.createModel(model4.id);
+        const instance5 = instanceManager.createModel(model5.id);
         //const instance3 = instanceManager.createModel(model.id);
-        console.log('Instance:', instance);
         instance.setRotation([ 0, 0.0, 0.0, 0 ]);
         instance.setPosition(0, -100, 0);
         instance.setScale(50, 50, 50);
 
         instance2.setRotation([0.0, 0.0, 0.0, 1.0]);
-        instance2.setPosition(100, -100, 0);
+        instance2.setPosition(50, -100, 0);
         instance2.setScale(30, 30, 30);
 
         instance3.setRotation([0.0, 0.0, 0.0, 1.0]);
         instance3.setPosition(-100, 0, 0);
         instance3.setScale(50, 50, 50);
+
+        instance4.setRotation([0.0, 0.0, 0.0, 1.0]);
+        instance4.setPosition(100, -100, 0);
+        instance4.setScale(100, 100, 100);
+
+        instance5.setRotation([0.707, 0.0, 0.0, 0.707]);
+        instance5.setPosition(0, 0, 0);
+        instance5.setScale(0.2, 0.2, 0.2);
 
         console.log('Instance set');
         // Set up point light
@@ -150,25 +164,28 @@
             }
         });
 
-        const animationController = instanceManager.animationController;
         instance3.playAnimation('animation_AnimatedCube', {loop: true});
         instance.playAnimation('Walk', {loop: true});
-        instance2.playAnimation('Walk', {loop: true});
+        instance2.playAnimation('Spell1', {loop: true});
+        instance5.playAnimation('Armature|Take 001|BaseLayer.001', {loop: true});
         // instance.playAnimation('', {loop: true});
 
         // Create render loop
         function render() {
             // Animate the instance
-            instance.updateAnimation(0.008);
-            instance2.updateAnimation(0.016);
+            instance.updateAnimation(0.007);
+            instance2.updateAnimation(0.008);
             instance3.updateAnimation(0.001);
+            instance5.updateAnimation(0.01);
             rotation += 0.01;
+            /*
             instance.setQuaternion(
                 0,                    // X component
                 Math.sin(rotation/2), // Y component 
                 0,                    // Z component
                 Math.cos(rotation/2)  // W component
             );            
+            */
 
             // Clear and render scene
             instanceManager.render(viewProjection);
