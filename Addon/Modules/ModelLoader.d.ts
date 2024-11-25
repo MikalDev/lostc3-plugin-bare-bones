@@ -11,7 +11,6 @@ export declare class ModelLoader implements IModelLoader {
     deleteModel(modelId: string): void;
     private processDocument;
     private processRenderableNodes;
-    private processMeshes;
     private processMesh;
     private processPrimitive;
     private getMaterialIndex;

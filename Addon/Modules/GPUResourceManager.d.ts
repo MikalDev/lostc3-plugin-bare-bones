@@ -2,6 +2,7 @@ import { IGPUResourceManager, Light, ModelData } from './types';
 export declare class GPUResourceManager implements IGPUResourceManager {
     private gl;
     private shaderSystem;
+    private gpuResourceCache;
     private buffers;
     private textures;
     private vaos;

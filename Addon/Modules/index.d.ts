@@ -4,6 +4,9 @@ export * from './AnimationController';
 /// <reference path="./errors.d.ts" />
 export * from './errors';
 
+/// <reference path="./GPUResourceCache.d.ts" />
+export * from './GPUResourceCache';
+
 /// <reference path="./GPUResourceManager.d.ts" />
 export * from './GPUResourceManager';
 

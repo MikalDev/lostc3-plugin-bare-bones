@@ -5,22 +5,22 @@ const Config: LostConfig<'plugin'> = {
     Deprecated: false,
 
     SupportsWorkerMode: false,
-    MinConstructVersion: "r397-4",
+    // MinConstructVersion: "LTS",
     CanBeBundled: false,
     IsSingleGlobal: true,
 
-    ObjectName: 'LostPluginName',
-    AddonId: 'Lost_MyAddon',
-    AddonName: 'Lost addon for Construct 3',
-    AddonDescription: 'Amazing addon made with Lost.',
-    Category: 'general',
-    Version: '1.0.0.0',
-    Author: 'lostinmind.',
+    ObjectName: 'Rendera',
+    AddonId: 'rendera',
+    AddonName: 'Rendera',
+    AddonDescription: 'Rendera 3d models',
+    Category: "other",
+    Version: '1.0.0',
+    Author: 'Mikal',
     WebsiteURL: `https://addon.com`,
     DocsURL: `https://docs.addon.com`,
 
     Files: [
-        {FileName: "styles.css", Type: 'copy-to-output'}
+        {FileName: "draco_decoder_gltf.wasm", Type: 'copy-to-output' }
     ]
 
 };

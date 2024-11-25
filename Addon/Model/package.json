@@ -24,7 +24,6 @@
     "@rollup/plugin-commonjs": "^28.0.1",
     "@rollup/plugin-node-resolve": "^15.3.0",
     "@rollup/plugin-typescript": "^12.1.1",
-    "@types/draco3dgltf": "^1.4.3",
     "@types/node": "^22.9.0",
     "copyfiles": "^2.4.1",
     "http-server": "^14.1.1",

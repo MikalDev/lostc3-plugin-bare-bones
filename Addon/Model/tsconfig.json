@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "target": "es2018",
+    "lib": ["es2018", "dom"],
     "module": "esnext",
     "moduleResolution": "bundler",
     "declaration": true,
@@ -9,11 +10,12 @@
     "strict": true,
     "esModuleInterop": true,
     "allowJs": true,
-    "typeRoots": ["./dist"],
+    "typeRoots": ["./dist", "./node_modules/@types, ./src/draco"],
     "baseUrl": ".",
     "declarationDir": "./dist",
     "noEmit": true,
     "allowImportingTsExtensions": true,
+    "skipLibCheck": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules"]

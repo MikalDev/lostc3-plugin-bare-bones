@@ -2,6 +2,7 @@ import { ModelError, ModelErrorCode } from './errors';
 import { InstanceData, IInstanceManager, IGPUResourceManager, InstanceId, type AnimationOptions, MAX_BONES, NodeTransforms } from './types';
 import { ModelLoader } from './ModelLoader';
 import { Model } from './Model';
+import { GPUResourceCache } from './GPUResourceCache';
 import { AnimationController } from './AnimationController';
 import { mat3, mat4 } from 'gl-matrix';
 import { Node } from '@gltf-transform/core';

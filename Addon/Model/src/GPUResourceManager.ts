@@ -1,9 +1,11 @@
 import { ModelError, ModelErrorCode } from './errors';
-import { MaterialData, IGPUResourceManager, SAMPLER_TEXTURE_UNIT_MAP, Light, ModelData } from './types';
+import { GPUResourceCache } from './GPUResourceCache';
+import { MaterialData, IGPUResourceManager, IGPUResourceCache,SAMPLER_TEXTURE_UNIT_MAP, Light, ModelData } from './types';
 
 export class GPUResourceManager implements IGPUResourceManager {
     private gl: WebGL2RenderingContext;
     private shaderSystem: ShaderSystem;
+    private gpuResourceCache: IGPUResourceCache;
     
     // Track resources for cleanup
     private buffers: Set<WebGLBuffer> = new Set();
@@ -31,6 +33,7 @@ export class GPUResourceManager implements IGPUResourceManager {
             intensity: 0,
             attenuation: 1
         }));
+        this.gpuResourceCache = new GPUResourceCache(gl);
     }
 
     createBuffer(data: BufferSource, usage: number): WebGLBuffer {

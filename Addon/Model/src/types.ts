@@ -125,6 +125,11 @@ export interface IModelLoader {
     deleteModel(modelId: string): void;
 }
 
+export interface IGPUResourceCache {
+    cacheModelMode(): void;
+    restoreModelMode(): void;
+}
+
 export interface IInstanceManager {
     setModelPosition(x: number, y: number, z: number, instance: Model): void;
     setModelRotation(quaternion: Float32Array, instance: Model): void;
