@@ -4,21 +4,24 @@ const config: LostConfig = {
     type: 'plugin',
     // deprecated?: boolean;
     // minConstructVersion?: string;
-    // canBeBundled?: boolean;
+    canBeBundled: false,
     isSingleGlobal: true,
-    objectName: 'LostPlugin',
+    objectName: 'Rendera',
 
-    addonId: 'LostPluginId',
-    category: 'general',
-    addonName: 'Lost plugin for Construct 3',
-    addonDescription: 'My awesome addon was made with Lost',
-    version: '1.0.0.0',
-    author: 'lostinmind.',
-    docsUrl: 'https://myaddon.com/docs',
+    addonId: 'rendera',
+    category: '3D',
+    addonName: 'Rendera',
+    addonDescription: 'Rendera is a 3D renderer for Construct 3',
+    version: '1.0.0',
+    author: 'Mikal',
+    docsUrl: 'https://kindeyegames.itch.io/rendera',
     helpUrl: {
-        EN: 'https://myaddon.com/help/en'
+        EN: 'https://kindeyegames.itch.io/rendera'
     },
-    websiteUrl: 'https://myaddon.com'
+    websiteUrl: 'https://kindeyegames.itch.io/rendera',
+    files: [
+        { FileName: "draco_decoder_gltf.wasm", Type: 'copy-to-output' }
+    ]
 }
 
 export default config;
