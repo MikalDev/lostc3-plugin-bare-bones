@@ -1,11 +1,19 @@
 {
-  "version": "1.0.0",
-  "compilerOptions": {
-    "noImplicitOverride": false
-  },
-  "tasks": {
-    "update:lost": "deno uninstall lost -g && deno cache --reload ./ & deno install --name lost jsr:@lost-c3/lib/cli --global -f -A & deno cache --reload ./",
-    "build": "lost build",
-    "serve": "lost serve"
-  }
+    "version": "1.0.0",
+    "compilerOptions": {
+        "lib": [
+            "deno.window",
+            "dom",
+            "deno.ns"
+        ],
+        "noImplicitOverride": false
+    },
+    "tasks": {
+        "dev": "lost build --watch",
+        "build": "lost build",
+        "serve": "lost serve"
+    },
+    "imports": {
+        "@Instance": "./Addon/Instance.ts"
+    }
 }

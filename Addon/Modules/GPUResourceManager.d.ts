@@ -1,8 +1,8 @@
-import { IGPUResourceManager, Light, ModelData } from './types';
+import { IGPUResourceManager, IGPUResourceCache, Light, ModelData } from './types';
 export declare class GPUResourceManager implements IGPUResourceManager {
     private gl;
     private shaderSystem;
-    private gpuResourceCache;
+    gpuResourceCache: IGPUResourceCache;
     private buffers;
     private textures;
     private vaos;

@@ -1,28 +1,27 @@
-import type { LostConfig } from "jsr:@lost-c3/lib";
+import type { LostConfig } from 'jsr:@lost-c3/lib@3.0.0';
 
-const Config: LostConfig<'plugin'> = {
-    Type: 'plugin',
-    Deprecated: false,
+const config: LostConfig = {
+    type: 'plugin',
+    // deprecated?: boolean;
+    // minConstructVersion?: string;
+    canBeBundled: false,
+    isSingleGlobal: true,
+    objectName: 'Rendera',
 
-    SupportsWorkerMode: false,
-    // MinConstructVersion: "LTS",
-    CanBeBundled: false,
-    IsSingleGlobal: true,
-
-    ObjectName: 'Rendera',
-    AddonId: 'rendera',
-    AddonName: 'Rendera',
-    AddonDescription: 'Rendera 3d models',
-    Category: "other",
-    Version: '1.0.0',
-    Author: 'Mikal',
-    WebsiteURL: `https://addon.com`,
-    DocsURL: `https://docs.addon.com`,
-
-    Files: [
-        {FileName: "draco_decoder_gltf.wasm", Type: 'copy-to-output' }
+    addonId: 'rendera',
+    category: '3d',
+    addonName: 'Rendera',
+    addonDescription: 'Rendera is a 3D renderer for Construct 3',
+    version: '1.0.0',
+    author: 'Mikal',
+    docsUrl: 'https://kindeyegames.itch.io/rendera',
+    helpUrl: {
+        EN: 'https://kindeyegames.itch.io/rendera'
+    },
+    websiteUrl: 'https://kindeyegames.itch.io/rendera',
+    files: [
+        { FileName: "draco_decoder_gltf.wasm", Type: 'copy-to-output' }
     ]
+}
 
-};
-
-export default Config;
+export default config;

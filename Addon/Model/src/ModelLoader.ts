@@ -5,12 +5,12 @@ import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { DracoDecoderModule } from './draco/draco_decoder_gltf';
 import { mat4} from 'gl-matrix';
 import { MaterialSystem } from './MaterialSystem';
-
 export class ModelLoader implements IModelLoader {
     public gl: WebGL2RenderingContext;
     private loadedModels: Map<string, ModelData> = new Map();
     private gpuResources: IGPUResourceManager;
     private webio!: WebIO;
+    private _pendingDocuments = new Map<string, Document>();
 
     constructor(gl: WebGL2RenderingContext, gpuResources: IGPUResourceManager) {
         this.gl = gl;
@@ -28,39 +28,58 @@ export class ModelLoader implements IModelLoader {
             });
     }
 
-    async loadModel(url: string): Promise<ModelId> {
-    /*    try { */
-            // Generate deterministic model ID from URL
-            const modelId = this.generateModelId(url);
-            
-            // Check if already loaded
-            if (this.loadedModels.has(modelId.id)) {
-                return modelId;
-            }
-
-            // Load and parse GLB file
+    async readDocument(url: string): Promise<boolean> {
+        try {
             const document = await this.webio.read(url);
-            console.log('ModelLoader: read', document);
+            console.info('[rendera] ModelLoader: read', url);
+            this._pendingDocuments.set(url, document);
+            return true;
+        } catch (error) {
+            throw this.createModelError(ModelErrorCode.LOAD_FAILED, `Failed to read document: ${error}`);
+        }
+    }
 
-            const modelData = await this.processDocument(document);
-            
-            // Store model data
-            this.loadedModels.set(modelId.id, modelData);
+    hasModel(modelId: ModelId): boolean {
+        return this.loadedModels.has(modelId.id);
+    }
 
-            return {
-                id: modelId.id,
-            };
+    async processModel(modelId: ModelId): Promise<boolean> {
 
-/*        } catch (error: unknown) {
-            const errorMessage = error instanceof Error 
-                ? error.message 
-                : 'Unknown error';
-                
-            throw this.createModelError(
-                ModelErrorCode.LOAD_FAILED,
-                `Failed to load model: ${errorMessage}`
-            );
-        }*/
+        const document = this._pendingDocuments.get(modelId.id);
+        this._pendingDocuments.delete(modelId.id);
+        if (!document) {
+            console.error('[rendera] ModelLoader: processModel - document not found', modelId.id);
+            return false;
+        }
+
+        const modelData = await this.processDocument(document);
+        if (!modelData) {
+            console.error('[rendera] ModelLoader: processModel - modelData not found', modelId.id);
+            return false;
+        }
+        
+        // Store model data
+        this.loadedModels.set(modelId.id, modelData);
+        console.info('[rendera] ModelLoader: processModel - modelData loaded', modelId.id);
+        return true;
+    }
+
+    get pendingDocuments(): Map<string, Document> {
+        return this._pendingDocuments;
+    }
+
+    async processPendingDocuments(): Promise<number> {
+        const pendingDocuments = this.pendingDocuments;
+        if (pendingDocuments.size === 0) return 0;
+        console.log('[rendera] ModelLoader: processPendingDocuments', this.pendingDocuments.size);
+        let count = 0;
+		for (const [id, _document] of pendingDocuments.entries()) {
+			const modelId: ModelId = { id };
+			await this.processModel(modelId);
+			count++;
+			console.info('[rendera] processFiles', modelId.id);
+		}
+        return count;
     }
 
     getModelData(modelId: string): ModelData | null {
@@ -98,17 +117,18 @@ export class ModelLoader implements IModelLoader {
         */
 
         console.log('ModelLoader: processDocument',);
-
+        this.gpuResources.gpuResourceCache.cacheModelMode();
         // Process each component sequentially for easier debugging
-        console.log('ModelLoader: processDocument', modelData);
-        await this.processMaterials(document, modelData);
-        console.log('ModelLoader: processMaterials', modelData);
-        await this.processAnimations(document, modelData);
         console.log('ModelLoader: processAnimations', modelData);
         await this.processJoints(document, modelData);
         console.log('ModelLoader: processJoints', modelData);
         await this.processRenderableNodes(document, modelData);
         console.log('ModelLoader: processRenderableNodes', modelData);
+        this.gpuResources.gpuResourceCache.restoreModelMode();
+        await this.processMaterials(document, modelData);
+        console.log('ModelLoader: processMaterials', modelData);
+        console.log('ModelLoader: processDocument', modelData);
+        await this.processAnimations(document, modelData);
 
         return modelData;
     }
@@ -402,7 +422,7 @@ export class ModelLoader implements IModelLoader {
         return createModelError(code, message);
     }
 
-    private generateModelId(url: string): ModelId {
+    public generateModelId(url: string): ModelId {
         // Simple hash function for URL
         const hash = Array.from(url).reduce(
             (hash, char) => ((hash << 5) - hash) + char.charCodeAt(0), 

@@ -1,11 +1,11 @@
 import { ModelError, ModelErrorCode } from './errors';
 import { GPUResourceCache } from './GPUResourceCache';
-import { MaterialData, IGPUResourceManager, IGPUResourceCache,SAMPLER_TEXTURE_UNIT_MAP, Light, ModelData } from './types';
+import { IGPUResourceManager, IGPUResourceCache, Light, ModelData } from './types';
 
 export class GPUResourceManager implements IGPUResourceManager {
     private gl: WebGL2RenderingContext;
     private shaderSystem: ShaderSystem;
-    private gpuResourceCache: IGPUResourceCache;
+    public gpuResourceCache: IGPUResourceCache;
     
     // Track resources for cleanup
     private buffers: Set<WebGLBuffer> = new Set();
