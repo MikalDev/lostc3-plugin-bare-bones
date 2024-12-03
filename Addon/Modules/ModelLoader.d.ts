@@ -1,12 +1,18 @@
+import { Document } from '@gltf-transform/core';
 import { ModelId, ModelData, IGPUResourceManager, IModelLoader } from './types';
 export declare class ModelLoader implements IModelLoader {
     gl: WebGL2RenderingContext;
     private loadedModels;
     private gpuResources;
     private webio;
+    private _pendingDocuments;
     constructor(gl: WebGL2RenderingContext, gpuResources: IGPUResourceManager);
     private createWebIO;
-    loadModel(url: string): Promise<ModelId>;
+    readDocument(url: string): Promise<boolean>;
+    hasModel(modelId: ModelId): boolean;
+    processModel(modelId: ModelId): Promise<boolean>;
+    get pendingDocuments(): Map<string, Document>;
+    processPendingDocuments(): Promise<number>;
     getModelData(modelId: string): ModelData | null;
     deleteModel(modelId: string): void;
     private processDocument;
@@ -19,7 +25,7 @@ export declare class ModelLoader implements IModelLoader {
     private processJoints;
     private cleanupModelResources;
     private createModelError;
-    private generateModelId;
+    generateModelId(url: string): ModelId;
     private createAttributeBuffer;
     private createIndexBuffer;
     private loadTexture;

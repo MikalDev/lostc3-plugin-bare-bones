@@ -9,7 +9,7 @@ const config: LostConfig = {
     objectName: 'Rendera',
 
     addonId: 'rendera',
-    category: '3D',
+    category: '3d',
     addonName: 'Rendera',
     addonDescription: 'Rendera is a 3D renderer for Construct 3',
     version: '1.0.0',

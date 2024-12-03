@@ -13,6 +13,7 @@ export class GPUResourceCache implements IGPUResourceCache {
     }
 
     cacheModelMode() {
+        console.log('[rendera] GPUResourceCache: cacheModelMode');
         // Get currently bound VAO
         const vao = this.gl.getParameter(this.gl.VERTEX_ARRAY_BINDING);
         
@@ -31,10 +32,13 @@ export class GPUResourceCache implements IGPUResourceCache {
             shaderProgram,
             elementArrayBuffer
         };
+        console.log('[rendera] GPUResourceCache: cachedState', this.cachedState);
     }
 
     restoreModelMode() {
+        console.log('[rendera] GPUResourceCache: restoreModelMode');
         if (this.cachedState) {
+            console.log('[rendera] GPUResourceCache: restoreModelMode', this.cachedState);
             this.gl.bindVertexArray(this.cachedState.vao);
             this.gl.bindTexture(this.gl.TEXTURE_2D, this.cachedState.textureBinding);
             this.gl.useProgram(this.cachedState.shaderProgram);

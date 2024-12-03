@@ -81,9 +81,12 @@ export interface InstanceData {
     };
 }
 export interface IModelLoader {
-    loadModel(url: string): Promise<ModelId>;
+    hasModel(modelId: ModelId): boolean;
+    readDocument(url: string): Promise<boolean>;
+    processModel(modelId: ModelId): Promise<boolean>;
     getModelData(modelId: string): ModelData | null;
     deleteModel(modelId: string): void;
+    generateModelId(url: string): ModelId;
 }
 export interface IGPUResourceCache {
     cacheModelMode(): void;
@@ -162,6 +165,7 @@ export interface IGPUResourceManager {
     setLightIntensity(index: number, intensity: number): void;
     setSpotLightParams(index: number, angle: number, penumbra: number): void;
     bindShaderAndMaterial(shader: WebGLProgram, materialIndex: number, modelData: ModelData): void;
+    gpuResourceCache: IGPUResourceCache;
 }
 export type AttributeSemantic = 'POSITION' | 'NORMAL' | 'TEXCOORD_0' | 'JOINTS_0' | 'WEIGHTS_0';
 export interface LightBase {

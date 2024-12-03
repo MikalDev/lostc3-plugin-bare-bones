@@ -2,7 +2,7 @@
 
 import { Model } from './Model';
 
-import { Node, Animation, Scene } from '@gltf-transform/core';
+import { Node, Animation, Scene, Document as gltfDocument } from '@gltf-transform/core';
 
 import { mat4, vec3, vec4 } from 'gl-matrix';
 import { MaterialSystem } from './MaterialSystem';
@@ -120,9 +120,12 @@ export interface InstanceData {
 
 // Main class interfaces
 export interface IModelLoader {
-    loadModel(url: string): Promise<ModelId>;
+    hasModel(modelId: ModelId): boolean;
+    readDocument(url: string): Promise<boolean>;
+    processModel(modelId: ModelId): Promise<boolean>;
     getModelData(modelId: string): ModelData | null;
     deleteModel(modelId: string): void;
+    generateModelId(url: string): ModelId;
 }
 
 export interface IGPUResourceCache {
@@ -212,6 +215,7 @@ export interface IGPUResourceManager {
     setLightIntensity(index: number, intensity: number): void;
     setSpotLightParams(index: number, angle: number, penumbra: number): void;
     bindShaderAndMaterial(shader: WebGLProgram, materialIndex: number, modelData: ModelData): void;
+    gpuResourceCache: IGPUResourceCache;
 }
 
 // Add this type definition

@@ -1,4 +1,4 @@
-import { GPUResourceManager, InstanceManager, ModelLoader } from './Modules/index.js';
+import { GPUResourceManager, InstanceManager, ModelId, ModelLoader } from './Modules/index.js';
 
 const C3 = globalThis.C3;
 
@@ -36,7 +36,15 @@ class LostInstance extends globalThis.ISDKInstanceBase {
 		console.info('[rendera] GPUResourceManager created', this.gpuResourceManager);
 		console.info('[rendera] InstanceManager created', this.instanceManager);
 		console.info('[rendera] ModelLoader created', this.modelLoader);
+		this._setTicking(true);
 
+	}
+
+	_tick() {
+		const count = this.modelLoader.processPendingDocuments();
+		if (count > 0) {
+			console.info('[rendera] processPendingDocuments', count);
+		}
 	}
 
 	_release() {

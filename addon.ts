@@ -8,7 +8,7 @@ Addon
 
     .setRuntimeScripts()
 
-    .addRemoteScripts('https://cdn/index.js')
+//    .addRemoteScripts('https://cdn/index.js')
 
     /** @Properties  */
     .addPluginProperty('integer', 'Integer', { type: Property.Integer })

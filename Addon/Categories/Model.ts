@@ -1,6 +1,7 @@
 import { Category, Action, Condition, Expression, addParam, Param } from 'jsr:@lost-c3/lib@3.0.0';
 // import type { Instance } from '@Instance';
 import type { Instance } from '../Instance.js';
+import type { ModelId } from '../Modules/index.js';
 
 @Category('modelId', 'Model')
 export default class ModelCategory {
@@ -11,18 +12,17 @@ export default class ModelCategory {
         ]
     })
     loadModel(this: Instance, path: string) {
-        console.log('[rendera] *************');
-        const gpuResourceCache = this.gpuResourceManager.gpuResourceCache;
-        console.log('[rendera] Loading model', path);
-        gpuResourceCache.cacheModelMode();
-        console.log('[rendera] cached model mode');
-        let model;
-        this.modelLoader.loadModel(path).then(newModel => {
-            model = newModel;
-            gpuResourceCache.restoreModelMode();
-            console.log('[rendera] restored model mode');
-            console.log('[rendera] Model loaded', model);
-        });
+        let modelId = this.modelLoader.generateModelId(path);
+        if (this.modelLoader.hasModel(modelId)) {
+            console.info('[rendera] Model already loaded', modelId, path);
+            return;
+        }
+        const result = this.modelLoader.readDocument(path);
+        if (!result) {
+            console.error('[rendera] Model not found', modelId, path);
+            return;
+        }
+        console.info('[rendera] Model loaded', modelId, path);
     }
 
     /** @Conditions */
