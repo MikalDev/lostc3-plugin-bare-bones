@@ -1,8 +1,8 @@
-import { GPUResourceManager, InstanceManager, ModelId, ModelLoader } from './Modules/index.js';
+import { GPUResourceManager, InstanceManager, ModelLoader } from './Modules/index.js';
 
 const C3 = globalThis.C3;
 
-class Instance extends globalThis.ISDKInstanceBase {
+class LostInstance extends globalThis.ISDKInstanceBase {
 
 	readonly Conditions = C3.Plugins[Lost.addonId].Cnds;
 

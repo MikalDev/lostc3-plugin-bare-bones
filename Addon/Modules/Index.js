@@ -13648,6 +13648,7 @@ class MaterialSystem {
 class ModelLoader {
     constructor(gl, gpuResources) {
         this.loadedModels = new Map();
+        this._pendingDocuments = new Map();
         this.gl = gl;
         this.gpuResources = gpuResources;
         this.createWebIO();
@@ -13661,33 +13662,53 @@ class ModelLoader {
             'draco3d.decoder': dracoDecoder
         });
     }
-    async loadModel(url) {
-        /*    try { */
-        // Generate deterministic model ID from URL
-        const modelId = this.generateModelId(url);
-        // Check if already loaded
-        if (this.loadedModels.has(modelId.id)) {
-            return modelId;
+    async readDocument(url) {
+        try {
+            const document = await this.webio.read(url);
+            console.info('[rendera] ModelLoader: read', url);
+            this._pendingDocuments.set(url, document);
+            return true;
         }
-        // Load and parse GLB file
-        const document = await this.webio.read(url);
-        console.log('ModelLoader: read', document);
+        catch (error) {
+            throw this.createModelError(ModelErrorCode.LOAD_FAILED, `Failed to read document: ${error}`);
+        }
+    }
+    hasModel(modelId) {
+        return this.loadedModels.has(modelId.id);
+    }
+    async processModel(modelId) {
+        const document = this._pendingDocuments.get(modelId.id);
+        this._pendingDocuments.delete(modelId.id);
+        if (!document) {
+            console.error('[rendera] ModelLoader: processModel - document not found', modelId.id);
+            return false;
+        }
         const modelData = await this.processDocument(document);
+        if (!modelData) {
+            console.error('[rendera] ModelLoader: processModel - modelData not found', modelId.id);
+            return false;
+        }
         // Store model data
         this.loadedModels.set(modelId.id, modelData);
-        return {
-            id: modelId.id,
-        };
-        /*        } catch (error: unknown) {
-                    const errorMessage = error instanceof Error
-                        ? error.message
-                        : 'Unknown error';
-                        
-                    throw this.createModelError(
-                        ModelErrorCode.LOAD_FAILED,
-                        `Failed to load model: ${errorMessage}`
-                    );
-                }*/
+        console.info('[rendera] ModelLoader: processModel - modelData loaded', modelId.id);
+        return true;
+    }
+    get pendingDocuments() {
+        return this._pendingDocuments;
+    }
+    async processPendingDocuments() {
+        const pendingDocuments = this.pendingDocuments;
+        if (pendingDocuments.size === 0)
+            return 0;
+        console.log('[rendera] ModelLoader: processPendingDocuments', this.pendingDocuments.size);
+        let count = 0;
+        for (const [id, _document] of pendingDocuments.entries()) {
+            const modelId = { id };
+            await this.processModel(modelId);
+            count++;
+            console.info('[rendera] processFiles', modelId.id);
+        }
+        return count;
     }
     getModelData(modelId) {
         return this.loadedModels.get(modelId) || null;
@@ -13720,16 +13741,18 @@ class ModelLoader {
         ]);
         */
         console.log('ModelLoader: processDocument');
+        this.gpuResources.gpuResourceCache.cacheModelMode();
         // Process each component sequentially for easier debugging
-        console.log('ModelLoader: processDocument', modelData);
-        await this.processMaterials(document, modelData);
-        console.log('ModelLoader: processMaterials', modelData);
-        await this.processAnimations(document, modelData);
         console.log('ModelLoader: processAnimations', modelData);
         await this.processJoints(document, modelData);
         console.log('ModelLoader: processJoints', modelData);
         await this.processRenderableNodes(document, modelData);
         console.log('ModelLoader: processRenderableNodes', modelData);
+        this.gpuResources.gpuResourceCache.restoreModelMode();
+        await this.processMaterials(document, modelData);
+        console.log('ModelLoader: processMaterials', modelData);
+        console.log('ModelLoader: processDocument', modelData);
+        await this.processAnimations(document, modelData);
         return modelData;
     }
     async processRenderableNodes(document, modelData) {
@@ -14042,6 +14065,7 @@ class GPUResourceCache {
         this.gl = gl;
     }
     cacheModelMode() {
+        console.log('[rendera] GPUResourceCache: cacheModelMode');
         // Get currently bound VAO
         const vao = this.gl.getParameter(this.gl.VERTEX_ARRAY_BINDING);
         // Get currently bound texture
@@ -14056,9 +14080,12 @@ class GPUResourceCache {
             shaderProgram,
             elementArrayBuffer
         };
+        console.log('[rendera] GPUResourceCache: cachedState', this.cachedState);
     }
     restoreModelMode() {
+        console.log('[rendera] GPUResourceCache: restoreModelMode');
         if (this.cachedState) {
+            console.log('[rendera] GPUResourceCache: restoreModelMode', this.cachedState);
             this.gl.bindVertexArray(this.cachedState.vao);
             this.gl.bindTexture(this.gl.TEXTURE_2D, this.cachedState.textureBinding);
             this.gl.useProgram(this.cachedState.shaderProgram);
